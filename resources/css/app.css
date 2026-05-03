@@ -1,0 +1,203 @@
+@import "tailwindcss";
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans:
+        "Instrument Sans", ui-sans-serif, system-ui, sans-serif,
+        "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+        "Noto Color Emoji";
+}
+
+@layer base {
+    * {
+        box-sizing: border-box;
+    }
+
+    html {
+        color-scheme: light dark;
+    }
+
+    body {
+        font-family: var(--font-sans);
+    }
+}
+
+@layer components {
+    .status-pill {
+        @apply inline-flex min-h-9 items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 text-sm text-zinc-600 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300;
+    }
+
+    .status-dot {
+        @apply h-2.5 w-2.5 rounded-full;
+    }
+
+    .search-shell {
+        @apply flex items-center rounded-full border border-zinc-200 bg-white shadow-[0_18px_70px_rgba(15,23,42,0.10)] transition dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-none;
+    }
+
+    .search-shell.is-processing {
+        animation: scan-pulse 1.2s ease-in-out infinite;
+    }
+
+    .primary-button {
+        @apply inline-flex min-h-11 items-center gap-2 rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200;
+    }
+
+    .secondary-button {
+        @apply inline-flex min-h-9 items-center rounded-full border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:border-zinc-300 hover:text-zinc-950 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-700 dark:hover:text-white;
+    }
+
+    .icon-button {
+        @apply inline-flex h-9 w-9 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white;
+    }
+
+    .field-input {
+        @apply h-11 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 dark:border-zinc-800 dark:bg-zinc-950 dark:text-white dark:placeholder:text-zinc-500;
+    }
+
+    .result-card {
+        @apply rounded-lg border border-zinc-200 bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-none;
+        animation: fade-in-up 260ms ease-out both;
+    }
+
+    .site-badge {
+        @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
+    }
+
+    .site-khfullhd {
+        @apply bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-200;
+    }
+
+    .site-khdiamond {
+        @apply bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-200;
+    }
+
+    .site-khanime {
+        @apply bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-200;
+    }
+
+    .site-default {
+        @apply bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200;
+    }
+
+    .option-panel {
+        @apply rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950;
+    }
+
+    .download-button {
+        @apply inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-800 transition hover:border-teal-400 hover:text-teal-700 disabled:cursor-wait disabled:opacity-75 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-teal-500 dark:hover:text-teal-300;
+    }
+
+    .subtitle-chip {
+        @apply inline-flex min-h-9 items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 transition hover:border-teal-400 hover:text-teal-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-teal-500 dark:hover:text-teal-300;
+    }
+
+    .metric-card {
+        @apply flex min-h-56 items-center justify-center rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900;
+    }
+
+    .gauge {
+        --value: 0;
+        --gauge-color: #0f766e;
+        @apply relative grid h-40 w-40 place-items-center rounded-full;
+        background: conic-gradient(var(--gauge-color) calc(var(--value) * 1%), rgb(228 228 231) 0);
+    }
+
+    .gauge::before {
+        content: "";
+        @apply absolute inset-3 rounded-full bg-white dark:bg-zinc-900;
+    }
+
+    .gauge > div {
+        @apply relative z-10 flex flex-col items-center text-center;
+    }
+
+    .gauge strong {
+        @apply text-3xl font-bold tracking-normal text-zinc-950 dark:text-white;
+    }
+
+    .gauge span {
+        @apply mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400;
+    }
+
+    .gauge-green {
+        --gauge-color: #16a34a;
+    }
+
+    .gauge-amber {
+        --gauge-color: #d97706;
+    }
+
+    .activity-item {
+        @apply relative rounded-lg border border-zinc-200 bg-zinc-50 p-3 pl-9 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300;
+    }
+
+    .activity-item::before {
+        content: "";
+        @apply absolute left-3 top-4 h-2.5 w-2.5 rounded-full bg-teal-500;
+    }
+
+    .toast {
+        @apply fixed right-4 top-20 z-50 max-w-sm rounded-lg border px-4 py-3 text-sm font-semibold shadow-lg;
+    }
+
+    .toast-error {
+        @apply border-red-200 bg-red-50 text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-100;
+    }
+
+    .toast-info {
+        @apply border-zinc-200 bg-white text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100;
+    }
+
+    .modal-shell {
+        @apply fixed inset-0 z-40 flex items-center justify-center p-4;
+    }
+
+    .modal-backdrop {
+        @apply absolute inset-0 bg-zinc-950/70 backdrop-blur-sm;
+    }
+
+    .modal-panel {
+        @apply relative z-10 w-full max-w-5xl overflow-hidden rounded-lg border border-zinc-800 bg-white shadow-2xl dark:bg-zinc-950;
+        animation: fade-in-up 180ms ease-out both;
+    }
+
+    .button-spinner {
+        @apply h-4 w-4 rounded-full border-2 border-current border-t-transparent;
+        animation: spin 800ms linear infinite;
+    }
+}
+
+@keyframes scan-pulse {
+    0%, 100% {
+        box-shadow: 0 18px 70px rgba(15, 23, 42, 0.10);
+        border-color: rgb(228 228 231);
+    }
+
+    50% {
+        box-shadow: 0 18px 70px rgba(13, 148, 136, 0.22);
+        border-color: rgb(45 212 191);
+    }
+}
+
+@keyframes fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
