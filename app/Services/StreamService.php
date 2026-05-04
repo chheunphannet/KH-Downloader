@@ -133,7 +133,8 @@ public function analyzeStream(
                     'url'     => base64_encode($data['stream_url']),
                     'name'    => $title,
                     'size'    => $fileSize,
-                ]
+                ],
+                false
             ),
             'size' => $fileSize,
         ];
@@ -351,6 +352,7 @@ public function createDownloadStreamCallback(
         $clientAborted = false;
 
         Redis::incr('active_downloads_count');
+        Redis::expire('active_downloads_count', 21600);
 
         try {
             set_time_limit(0);
@@ -395,7 +397,11 @@ public function createDownloadStreamCallback(
                 $process->stop(1);
             }
 
-            Redis::decr('active_downloads_count');
+            $current = Redis::decr('active_downloads_count');
+
+            if ($current <= 0) {
+                Redis::del('active_downloads_count');
+            }
         }
     };
 }
@@ -472,7 +478,12 @@ private function buildFormatSelector(int|string|null $quality): string
 {
     $height = is_numeric($quality) ? (int) $quality : 720;
 
-    return "bestvideo[height<={$height}]+bestaudio/best";
+    return implode('/', [
+        "best[height<={$height}][vcodec!=none][acodec!=none]",
+        "bestvideo[height<={$height}]+bestaudio",
+        "best[height<={$height}]",
+        'best',
+    ]);
 }
 
 private function buildDownloadCommand(

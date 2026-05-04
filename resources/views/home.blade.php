@@ -8,6 +8,7 @@
 </head>
 <body data-page="home" class="min-h-screen bg-zinc-50 text-zinc-950 antialiased dark:bg-zinc-950 dark:text-zinc-50">
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+    <iframe id="downloadFrame" name="downloadFrame" class="hidden" title="Download"></iframe>
 
     <header class="fixed inset-x-0 top-0 z-30 border-b border-zinc-200/70 bg-zinc-50/85 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/85">
         <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">

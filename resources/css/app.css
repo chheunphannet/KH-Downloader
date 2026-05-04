@@ -92,6 +92,10 @@
         @apply inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 text-center text-sm font-semibold text-zinc-800 no-underline transition hover:border-teal-400 hover:text-teal-700 disabled:cursor-wait disabled:opacity-75 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-teal-500 dark:hover:text-teal-300;
     }
 
+    .download-button.is-starting {
+        @apply pointer-events-none cursor-wait opacity-75;
+    }
+
     .subtitle-chip {
         @apply inline-flex min-h-9 items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 transition hover:border-teal-400 hover:text-teal-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-teal-500 dark:hover:text-teal-300;
     }

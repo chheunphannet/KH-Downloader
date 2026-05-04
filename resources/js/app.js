@@ -30,11 +30,10 @@ function initDownloader() {
     const watchModal = $('#watchModal');
     const watchFrame = $('#watchFrame');
     const watchTitle = $('#watchTitle');
+    const downloadFrame = $('#downloadFrame');
 
     const state = {
         result: null,
-        downloadStates: {},
-        waitTimers: {},
         serverStatus: null,
     };
 
@@ -71,8 +70,6 @@ function initDownloader() {
             }
 
             state.result = payload;
-            state.downloadStates = {};
-            clearWaitTimers(state);
             renderResultCard(resultCard, payload, state);
             show(resultCard);
         } catch (error) {
@@ -95,7 +92,7 @@ function initDownloader() {
         }
 
         if (downloadControl) {
-            handleDownloadClick(event, downloadControl, state, capacityBanner, resultCard);
+            handleDownloadClick(event, downloadControl, state, capacityBanner);
             return;
         }
 
@@ -109,6 +106,18 @@ function initDownloader() {
             watchFrame.src = '';
             hide(watchModal);
         });
+    });
+
+    downloadFrame?.addEventListener('load', () => {
+        const message = downloadFrame.contentDocument?.body?.textContent?.trim();
+
+        if (!message) {
+            return;
+        }
+
+        showToast(downloadErrorMessage(message), 'error');
+        resetStartingDownloads();
+        refreshServerStatus(state);
     });
 
     document.addEventListener('keydown', (event) => {
@@ -209,7 +218,7 @@ function renderResultCard(container, result, state) {
                     <h3 class="text-sm font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">Download</h3>
                 </div>
                 <div class="grid gap-3 sm:grid-cols-2">
-                    ${links.length ? links.map(([quality, link]) => renderDownloadButton(quality, link, state.downloadStates[quality])).join('') : renderEmptyState('No download links found.')}
+                    ${links.length ? links.map(([quality, link]) => renderDownloadButton(quality, link)).join('') : renderEmptyState('No download links found.')}
                 </div>
             </div>
         </div>
@@ -230,36 +239,17 @@ function renderWatchSection(result) {
     `;
 }
 
-function renderDownloadButton(quality, link, state) {
-    const label = downloadButtonLabel(quality, link, state);
-    const isWaiting = state?.status === 'waiting';
-    const spinner = isWaiting ? '<span class="button-spinner" aria-hidden="true"></span>' : '';
-
-    if (isWaiting) {
-        return `
-        <button type="button" class="download-button" disabled data-download-quality="${escapeAttr(quality)}">
-            ${spinner}
-            <span>${escapeHtml(label)}</span>
-        </button>
-        `;
-    }
+function renderDownloadButton(quality, link) {
+    const label = downloadButtonLabel(quality, link);
 
     return `
-        <a class="download-button" href="${escapeAttr(link.url)}" download data-download-quality="${escapeAttr(quality)}">
+        <a class="download-button" href="${escapeAttr(link.url)}" target="downloadFrame" download data-download-quality="${escapeAttr(quality)}">
             <span>${escapeHtml(label)}</span>
         </a>
     `;
 }
 
-function downloadButtonLabel(quality, link, state) {
-    if (state?.status === 'waiting') {
-        return `Waiting for slot... (Pos: ${state.position})`;
-    }
-
-    if (state?.status === 'ready') {
-        return `Download ${quality}p now`;
-    }
-
+function downloadButtonLabel(quality, link) {
     const size = link.size ? ` (${link.size})` : '';
     return `Download ${quality}p${size}`;
 }
@@ -287,60 +277,59 @@ function renderEmptyState(message) {
     return `<p class="rounded-lg border border-dashed border-zinc-200 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">${escapeHtml(message)}</p>`;
 }
 
-function handleDownloadClick(event, control, state, capacityBanner, resultCard) {
-    const quality = control.dataset.downloadQuality;
-    const status = state.serverStatus;
-
-    if (status && !status.available) {
+function handleDownloadClick(event, control, state, capacityBanner) {
+    if (control.dataset.starting === 'true') {
         event.preventDefault();
-        show(capacityBanner);
-        queueDownload(quality, state, capacityBanner, resultCard, status);
         return;
     }
 
     hide(capacityBanner);
-    delete state.downloadStates[quality];
+    markDownloadStarting(control);
 
     window.setTimeout(() => refreshServerStatus(state), 1000);
 }
 
-function queueDownload(quality, state, capacityBanner, resultCard, initialStatus) {
-    const position = Math.max(Number(initialStatus?.wait_list || 1), 1);
-    state.downloadStates[quality] = { status: 'waiting', position };
-    updateDownloadButtons(resultCard, state);
+function markDownloadStarting(control) {
+    control.dataset.starting = 'true';
+    control.dataset.originalLabel = control.textContent.trim();
+    control.setAttribute('aria-disabled', 'true');
+    control.classList.add('is-starting');
+    control.innerHTML = `
+        <span class="button-spinner" aria-hidden="true"></span>
+        <span>Starting download...</span>
+    `;
 
-    if (state.waitTimers[quality]) {
-        window.clearInterval(state.waitTimers[quality]);
-    }
-
-    state.waitTimers[quality] = window.setInterval(async () => {
-        const status = await refreshServerStatus(state);
-        const nextPosition = Math.max(Number(status?.wait_list || 1), 1);
-
-        if (status?.available) {
-            window.clearInterval(state.waitTimers[quality]);
-            delete state.waitTimers[quality];
-            hide(capacityBanner);
-            state.downloadStates[quality] = { status: 'ready' };
-            updateDownloadButtons(resultCard, state);
-            showToast('Download slot ready. Click the download button again.', 'info');
-            return;
-        }
-
-        state.downloadStates[quality] = { status: 'waiting', position: nextPosition };
-        updateDownloadButtons(resultCard, state);
-    }, statusPollMs);
+    window.setTimeout(() => resetStartingDownload(control), 30000);
 }
 
-function updateDownloadButtons(resultCard, state) {
-    if (state.result) {
-        renderResultCard(resultCard, state.result, state);
-    }
+function resetStartingDownloads() {
+    document.querySelectorAll('[data-starting="true"]').forEach(resetStartingDownload);
 }
 
-function clearWaitTimers(state) {
-    Object.values(state.waitTimers).forEach((timer) => window.clearInterval(timer));
-    state.waitTimers = {};
+function resetStartingDownload(control) {
+    if (control.dataset.starting !== 'true') {
+        return;
+    }
+
+    const label = control.dataset.originalLabel || 'Download';
+
+    delete control.dataset.starting;
+    delete control.dataset.originalLabel;
+    control.removeAttribute('aria-disabled');
+    control.classList.remove('is-starting');
+    control.innerHTML = `<span>${escapeHtml(label)}</span>`;
+}
+
+function downloadErrorMessage(message) {
+    if (message.includes('Server Full') || message.includes('Too Many Requests')) {
+        return 'Server is full. Please try again in a moment.';
+    }
+
+    if (message.includes('Invalid signature')) {
+        return 'This download link expired. Process the video link again.';
+    }
+
+    return 'Download did not start. Please try again.';
 }
 
 function initAdminDashboard() {

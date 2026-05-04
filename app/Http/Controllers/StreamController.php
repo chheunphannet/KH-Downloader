@@ -47,7 +47,7 @@ public function download(Request $request)
     $fileSize = $request->query('size');
 
     // 2. Check Redis Concurrency Limit
-    $count = (int) Redis::get('active_downloads_count');
+    $count = max((int) Redis::get('active_downloads_count'), 0);
     if ($count >= 5) {
         return response()->json(['error' => 'Server Full (5/5). Please try again in a moment.'], 429);
     }
@@ -79,7 +79,7 @@ public function download(Request $request)
 
     public function serverStatus()
     {
-        $current = (int) Redis::get('active_downloads_count') ?: 0;
+        $current = max((int) Redis::get('active_downloads_count'), 0);
         return response()->json([
             'current' => $current,
             'max' => 5,
