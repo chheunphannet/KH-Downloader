@@ -82,9 +82,9 @@ function initDownloader() {
         }
     });
 
-    resultCard.addEventListener('click', async (event) => {
+    resultCard.addEventListener('click', (event) => {
         const watchButton = event.target.closest('[data-watch-url]');
-        const downloadButton = event.target.closest('[data-download-quality]');
+        const downloadControl = event.target.closest('[data-download-quality]');
         const subtitleButton = event.target.closest('[data-subtitle-url]');
 
         if (watchButton) {
@@ -94,8 +94,8 @@ function initDownloader() {
             return;
         }
 
-        if (downloadButton) {
-            await handleDownloadClick(downloadButton, state, capacityBanner, resultCard);
+        if (downloadControl) {
+            handleDownloadClick(event, downloadControl, state, capacityBanner, resultCard);
             return;
         }
 
@@ -232,14 +232,22 @@ function renderWatchSection(result) {
 
 function renderDownloadButton(quality, link, state) {
     const label = downloadButtonLabel(quality, link, state);
-    const disabled = state === 'waiting' || state === 'downloading' ? 'disabled' : '';
-    const spinner = state === 'downloading' ? '<span class="button-spinner" aria-hidden="true"></span>' : '';
+    const isWaiting = state?.status === 'waiting';
+    const spinner = isWaiting ? '<span class="button-spinner" aria-hidden="true"></span>' : '';
 
-    return `
-        <button type="button" class="download-button" ${disabled} data-download-quality="${escapeAttr(quality)}" data-download-url="${escapeAttr(link.url)}">
+    if (isWaiting) {
+        return `
+        <button type="button" class="download-button" disabled data-download-quality="${escapeAttr(quality)}">
             ${spinner}
             <span>${escapeHtml(label)}</span>
         </button>
+        `;
+    }
+
+    return `
+        <a class="download-button" href="${escapeAttr(link.url)}" download data-download-quality="${escapeAttr(quality)}">
+            <span>${escapeHtml(label)}</span>
+        </a>
     `;
 }
 
@@ -248,8 +256,8 @@ function downloadButtonLabel(quality, link, state) {
         return `Waiting for slot... (Pos: ${state.position})`;
     }
 
-    if (state === 'downloading') {
-        return 'Downloading';
+    if (state?.status === 'ready') {
+        return `Download ${quality}p now`;
     }
 
     const size = link.size ? ` (${link.size})` : '';
@@ -279,25 +287,24 @@ function renderEmptyState(message) {
     return `<p class="rounded-lg border border-dashed border-zinc-200 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">${escapeHtml(message)}</p>`;
 }
 
-async function handleDownloadClick(button, state, capacityBanner, resultCard) {
-    const quality = button.dataset.downloadQuality;
-    const url = button.dataset.downloadUrl;
+function handleDownloadClick(event, control, state, capacityBanner, resultCard) {
+    const quality = control.dataset.downloadQuality;
+    const status = state.serverStatus;
 
-    state.downloadStates[quality] = 'checking';
-    updateDownloadButtons(resultCard, state);
-
-    const status = await refreshServerStatus(state);
-
-    if (!status?.available) {
+    if (status && !status.available) {
+        event.preventDefault();
         show(capacityBanner);
-        queueDownload(quality, url, state, capacityBanner, resultCard, status);
+        queueDownload(quality, state, capacityBanner, resultCard, status);
         return;
     }
 
-    startDownload(quality, url, state, resultCard);
+    hide(capacityBanner);
+    delete state.downloadStates[quality];
+
+    window.setTimeout(() => refreshServerStatus(state), 1000);
 }
 
-function queueDownload(quality, url, state, capacityBanner, resultCard, initialStatus) {
+function queueDownload(quality, state, capacityBanner, resultCard, initialStatus) {
     const position = Math.max(Number(initialStatus?.wait_list || 1), 1);
     state.downloadStates[quality] = { status: 'waiting', position };
     updateDownloadButtons(resultCard, state);
@@ -314,30 +321,15 @@ function queueDownload(quality, url, state, capacityBanner, resultCard, initialS
             window.clearInterval(state.waitTimers[quality]);
             delete state.waitTimers[quality];
             hide(capacityBanner);
-            startDownload(quality, url, state, resultCard);
+            state.downloadStates[quality] = { status: 'ready' };
+            updateDownloadButtons(resultCard, state);
+            showToast('Download slot ready. Click the download button again.', 'info');
             return;
         }
 
         state.downloadStates[quality] = { status: 'waiting', position: nextPosition };
         updateDownloadButtons(resultCard, state);
     }, statusPollMs);
-}
-
-function startDownload(quality, url, state, resultCard) {
-    state.downloadStates[quality] = 'downloading';
-    updateDownloadButtons(resultCard, state);
-
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.rel = 'noopener';
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
-
-    window.setTimeout(() => {
-        delete state.downloadStates[quality];
-        updateDownloadButtons(resultCard, state);
-    }, 3000);
 }
 
 function updateDownloadButtons(resultCard, state) {

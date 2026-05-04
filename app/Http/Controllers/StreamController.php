@@ -57,16 +57,22 @@ public function download(Request $request)
         $quality ? "{$quality}p" : null,
         $fileSize,
     ]);
-    $fileName = preg_replace('/[\\\\\/:*?"<>|]+/', '', implode(' ', $fileNameParts)) . '.mp4';
+    $fileName = trim(preg_replace('/[\\\\\/:*?"<>|]+/', '', implode(' ', $fileNameParts))) ?: 'video';
+    $fileName .= '.mp4';
 
     return response()->stream(
         $this->streamService->createDownloadStreamCallback($streamUrl, $quality, $referer),
         200,
         [
-        'Content-Type' => 'video/mp4',
-        'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
-        'Cache-Control' => 'no-cache',
-        'X-Accel-Buffering' => 'no', //Tells Nginx not to buffer the video
+        'Content-Description' => 'File Transfer',
+        'Content-Type' => 'application/octet-stream',
+        'Content-Disposition' => 'attachment; filename="' . addcslashes($fileName, '"\\') . '"',
+        'Content-Transfer-Encoding' => 'binary',
+        'Cache-Control' => 'no-store, no-cache, must-revalidate',
+        'Pragma' => 'no-cache',
+        'Expires' => '0',
+        'X-Accel-Buffering' => 'no',
+        'X-Content-Type-Options' => 'nosniff',
         ]
     );
 }
