@@ -65,20 +65,36 @@ public function download(Request $request)
     $fileName .= '.mp4';
 
     return response()->stream(
-        $this->streamService->createDownloadStreamCallback($streamUrl, $quality, $referer),
-        200,
-        [
-        'Content-Description' => 'File Transfer',
+    function () {
+        logger()->info('TEST: stream callback fired');
+        while (ob_get_level() > 0) ob_end_clean();
+        echo str_repeat('A', 1024 * 1024); // 1MB of data
+        flush();
+        logger()->info('TEST: stream callback done');
+    },
+    200,
+    [
         'Content-Type' => 'application/octet-stream',
-        'Content-Disposition' => 'attachment; filename="' . addcslashes($fileName, '"\\') . '"',
-        'Content-Transfer-Encoding' => 'binary',
-        'Cache-Control' => 'no-store, no-cache, must-revalidate',
-        'Pragma' => 'no-cache',
-        'Expires' => '0',
+        'Content-Disposition' => 'attachment; filename="test.bin"',
         'X-Accel-Buffering' => 'no',
-        'X-Content-Type-Options' => 'nosniff',
-        ]
-    );
+    ]
+);
+
+    // return response()->stream(
+    //     $this->streamService->createDownloadStreamCallback($streamUrl, $quality, $referer),
+    //     200,
+    //     [
+    //     'Content-Description' => 'File Transfer',
+    //     'Content-Type' => 'application/octet-stream',
+    //     'Content-Disposition' => 'attachment; filename="' . addcslashes($fileName, '"\\') . '"',
+    //     'Content-Transfer-Encoding' => 'binary',
+    //     'Cache-Control' => 'no-store, no-cache, must-revalidate',
+    //     'Pragma' => 'no-cache',
+    //     'Expires' => '0',
+    //     'X-Accel-Buffering' => 'no',
+    //     'X-Content-Type-Options' => 'nosniff',
+    //     ]
+    // );
 }
 
     public function serverStatus()

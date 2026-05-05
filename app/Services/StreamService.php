@@ -373,14 +373,23 @@ public function createDownloadStreamCallback(
             $process->setTimeout(null);
             $process->start();
 
+            if (!$process->isRunning()) {
+            logger()->error('Process failed to start', [
+                'command' => $process->getCommandLine(),
+                'error' => $process->getErrorOutput(),
+                ]);
+            }
+
             foreach ($process as $type => $buffer) {
                 if ($type !== $process::OUT || $buffer === '') {
                     continue;
                 }
+                if ($type === $process::ERR) {
+                    logger()->debug('yt-dlp stderr', ['output' => $buffer]);
+                    continue;
+                }
 
                 echo $buffer;
-
-
                 flush();
 
                 if (connection_aborted()) {
