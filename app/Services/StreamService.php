@@ -358,10 +358,12 @@ public function createDownloadStreamCallback(
             set_time_limit(0);
             ignore_user_abort(true);
 
+            $tempDirectory = $this->downloadTempDirectory();
+
             $process = new SymfonyProcess(
                 $this->buildDownloadCommand($streamUrl, $quality, $referer),
-                null,
-                $this->ytDlpEnvironment()
+                $tempDirectory,
+                $this->ytDlpEnvironment($tempDirectory)
             );
 
             $process->setTimeout(null);
@@ -437,22 +439,29 @@ private function resolveYtDlpBinary(): string
     return config('streaming.yt_dlp_binary', 'yt-dlp');
 }
 
-private function ytDlpEnvironment(): array
+private function ytDlpEnvironment(?string $tempDirectory = null): array
 {
     $path = getenv('PATH') ?: '';
+    $tempDirectory ??= $this->downloadTempDirectory();
 
     if (PHP_OS_FAMILY === 'Windows') {
         return [
             'PATH'       => $path,
-            'TMP'        => getenv('TMP') ?: 'C:\\tmp',
-            'TEMP'       => getenv('TEMP') ?: 'C:\\tmp',
+            'TMP'        => $tempDirectory,
+            'TEMP'       => $tempDirectory,
             'SYSTEMROOT' => getenv('SYSTEMROOT') ?: 'C:\\Windows',
             'SystemRoot' => getenv('SystemRoot') ?: 'C:\\Windows',
             'WINDIR'     => getenv('WINDIR') ?: 'C:\\Windows',
         ];
     }
 
-    return ['PATH' => $path];
+    return [
+        'PATH'   => $path,
+        'HOME'   => $tempDirectory,
+        'TMPDIR' => $tempDirectory,
+        'TMP'    => $tempDirectory,
+        'TEMP'   => $tempDirectory,
+    ];
 }
 
 private function extractQualityList(array $formats): array
@@ -494,12 +503,29 @@ private function buildDownloadCommand(
 {
     return [
         $this->resolveYtDlpBinary(),
-        '--add-header', "Referer:{$referer}",
+        '--add-header', "Referer: {$referer}",
         '-f', $this->buildFormatSelector($quality),
+        '--paths', 'temp:' . $this->downloadTempDirectory(),
+        '--no-cache-dir',
         '--no-part',
         '-o', '-',
         $streamUrl,
     ];
+}
+
+private function downloadTempDirectory(): string
+{
+    $path = (string) config('streaming.download_temp_path', storage_path('app/yt-dlp-temp'));
+
+    if (!is_dir($path) && !mkdir($path, 0775, true) && !is_dir($path)) {
+        throw new \RuntimeException("Unable to create download temp directory: {$path}");
+    }
+
+    if (!is_writable($path)) {
+        throw new \RuntimeException("Download temp directory is not writable: {$path}");
+    }
+
+    return $path;
 }
 
     private function findIframeSrc(string $html): ?string{

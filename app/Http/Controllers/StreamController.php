@@ -41,10 +41,14 @@ public function download(Request $request)
     // $site = $request->query('site');
     $quality = $request->query('quality');
     $encodedUrl = $request->query('url');
-    $streamUrl = base64_decode($encodedUrl);
-    $referer = $request->query('referer');
+    $streamUrl = is_string($encodedUrl) ? base64_decode($encodedUrl, true) : false;
+    $referer = (string) $request->query('referer', '');
     $movieName = $request->query('name');
     $fileSize = $request->query('size');
+
+    if ($streamUrl === false || !filter_var($streamUrl, FILTER_VALIDATE_URL)) {
+        return response()->json(['error' => 'Invalid or expired download link. Process the video link again.'], 422);
+    }
 
     // 2. Check Redis Concurrency Limit
     $count = max((int) Redis::get('active_downloads_count'), 0);

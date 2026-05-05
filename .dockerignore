@@ -1,0 +1,15 @@
+.env
+.git
+.idea
+.vscode
+node_modules
+public/build
+public/hot
+public/--Frag*
+storage/app/yt-dlp-temp
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/testing/*
+storage/framework/views/*
+storage/logs/*
+vendor

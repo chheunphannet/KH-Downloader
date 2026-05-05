@@ -35,6 +35,7 @@ function initDownloader() {
     const state = {
         result: null,
         serverStatus: null,
+        downloadFrame,
     };
 
     refreshServerStatus(state);
@@ -278,13 +279,36 @@ function renderEmptyState(message) {
 }
 
 function handleDownloadClick(event, control, state, capacityBanner) {
+    event.preventDefault();
+
     if (control.dataset.starting === 'true') {
-        event.preventDefault();
+        return;
+    }
+
+    const downloadUrl = control.href || control.getAttribute('href');
+
+    if (!downloadUrl) {
+        showToast('Download link is missing. Process the video link again.', 'error');
         return;
     }
 
     hide(capacityBanner);
     markDownloadStarting(control);
+
+    const startDownload = () => {
+        if (state.downloadFrame) {
+            state.downloadFrame.src = downloadUrl;
+            return;
+        }
+
+        window.location.href = downloadUrl;
+    };
+
+    if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => window.requestAnimationFrame(startDownload));
+    } else {
+        window.setTimeout(startDownload, 0);
+    }
 
     window.setTimeout(() => refreshServerStatus(state), 1000);
 }
