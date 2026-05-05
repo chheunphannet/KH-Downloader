@@ -64,21 +64,21 @@ public function download(Request $request)
     $fileName = trim(preg_replace('/[\\\\\/:*?"<>|]+/', '', implode(' ', $fileNameParts))) ?: 'video';
     $fileName .= '.mp4';
 
-    return response()->stream(
-    function () {
-        logger()->info('TEST: stream callback fired');
-        while (ob_get_level() > 0) ob_end_clean();
-        echo str_repeat('A', 1024 * 1024); // 1MB of data
-        flush();
-        logger()->info('TEST: stream callback done');
-    },
-    200,
-    [
-        'Content-Type' => 'application/octet-stream',
-        'Content-Disposition' => 'attachment; filename="test.bin"',
-        'X-Accel-Buffering' => 'no',
-    ]
-);
+//     return response()->stream(
+//     function () {
+//         logger()->info('TEST: stream callback fired');
+//         while (ob_get_level() > 0) ob_end_clean();
+//         echo str_repeat('A', 1024 * 1024); // 1MB of data
+//         flush();
+//         logger()->info('TEST: stream callback done');
+//     },
+//     200,
+//     [
+//         'Content-Type' => 'application/octet-stream',
+//         'Content-Disposition' => 'attachment; filename="test.bin"',
+//         'X-Accel-Buffering' => 'no',
+//     ]
+// );
 
     return response()->stream(
         $this->streamService->createDownloadStreamCallback($streamUrl, $quality, $referer),
@@ -97,14 +97,14 @@ public function download(Request $request)
     );
 }
 
-    // public function serverStatus()
-    // {
-    //     $current = max((int) Redis::get('active_downloads_count'), 0);
-    //     return response()->json([
-    //         'current' => $current,
-    //         'max' => 5,
-    //         'available' => $current < 5,
-    //         'wait_list' => $current >= 5 ? ($current - 4) : 0 
-    //     ]);
-    // }
+    public function serverStatus()
+    {
+        $current = max((int) Redis::get('active_downloads_count'), 0);
+        return response()->json([
+            'current' => $current,
+            'max' => 5,
+            'available' => $current < 5,
+            'wait_list' => $current >= 5 ? ($current - 4) : 0 
+        ]);
+    }
 }
