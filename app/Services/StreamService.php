@@ -351,6 +351,10 @@ public function createDownloadStreamCallback(
         $process = null;
         $clientAborted = false;
 
+       if (ob_get_level() > 0) {
+            ob_flush();
+        }
+
         Redis::incr('active_downloads_count');
         Redis::expire('active_downloads_count', 21600);
 
@@ -376,9 +380,7 @@ public function createDownloadStreamCallback(
 
                 echo $buffer;
 
-                if (ob_get_level() > 0) {
-                    ob_flush();
-                }
+
                 flush();
 
                 if (connection_aborted()) {
@@ -489,7 +491,6 @@ private function buildFormatSelector(int|string|null $quality): string
 
     return implode('/', [
         "best[height<={$height}][vcodec!=none][acodec!=none]",
-        "bestvideo[height<={$height}]+bestaudio",
         "best[height<={$height}]",
         'best',
     ]);
