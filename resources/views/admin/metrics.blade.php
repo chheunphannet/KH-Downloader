@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Private KH Downloader metrics dashboard for monitoring capacity, active sessions, and supported site usage.">
     <title>Admin Metrics</title>
+    <link rel="icon" type="image/webp" href="{{ asset('images/logo.webp') }}">
+    <link rel="shortcut icon" href="{{ asset('images/logo.webp') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body data-page="admin" class="min-h-screen bg-zinc-50 text-zinc-950 antialiased dark:bg-zinc-950 dark:text-zinc-50">

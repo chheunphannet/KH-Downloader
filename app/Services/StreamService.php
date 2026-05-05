@@ -527,16 +527,24 @@ private function downloadTempDirectory(): string
 {
     $path = (string) config('streaming.download_temp_path', storage_path('app/yt-dlp-temp'));
 
+    if (!is_dir($path) && !mkdir($path, 0775, true) && !is_dir($path)) {
+        throw new \RuntimeException("Unable to create download temp directory: {$path}");
+    }
+
+    $owner = null;
+    if (is_dir($path)) {
+        $ownerId = fileowner($path);
+        $owner = (function_exists('posix_getpwuid') && $ownerId !== false)
+            ? (posix_getpwuid($ownerId)['name'] ?? $ownerId)
+            : $ownerId;
+    }
+
     logger()->debug('Temp directory check', [
         'path' => $path,
         'exists' => is_dir($path),
         'writable' => is_writable($path),
-        'owner' => (function_exists('posix_stat') && function_exists('posix_getpwuid')) ? (posix_getpwuid(fileowner($path))['name'] ?? fileowner($path)) : fileowner($path),
+        'owner' => $owner,
     ]);
-
-    if (!is_dir($path) && !mkdir($path, 0775, true) && !is_dir($path)) {
-        throw new \RuntimeException("Unable to create download temp directory: {$path}");
-    }
 
     if (!is_writable($path)) {
         throw new \RuntimeException("Download temp directory is not writable: {$path}");
