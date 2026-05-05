@@ -80,31 +80,31 @@ public function download(Request $request)
     ]
 );
 
-    // return response()->stream(
-    //     $this->streamService->createDownloadStreamCallback($streamUrl, $quality, $referer),
-    //     200,
-    //     [
-    //     'Content-Description' => 'File Transfer',
-    //     'Content-Type' => 'application/octet-stream',
-    //     'Content-Disposition' => 'attachment; filename="' . addcslashes($fileName, '"\\') . '"',
-    //     'Content-Transfer-Encoding' => 'binary',
-    //     'Cache-Control' => 'no-store, no-cache, must-revalidate',
-    //     'Pragma' => 'no-cache',
-    //     'Expires' => '0',
-    //     'X-Accel-Buffering' => 'no',
-    //     'X-Content-Type-Options' => 'nosniff',
-    //     ]
-    // );
+    return response()->stream(
+        $this->streamService->createDownloadStreamCallback($streamUrl, $quality, $referer),
+        200,
+        [
+        'Content-Description' => 'File Transfer',
+        'Content-Type' => 'application/octet-stream',
+        'Content-Disposition' => 'attachment; filename="' . addcslashes($fileName, '"\\') . '"',
+        'Content-Transfer-Encoding' => 'binary',
+        'Cache-Control' => 'no-store, no-cache, must-revalidate',
+        'Pragma' => 'no-cache',
+        'Expires' => '0',
+        'X-Accel-Buffering' => 'no',
+        'X-Content-Type-Options' => 'nosniff',
+        ]
+    );
 }
 
-    public function serverStatus()
-    {
-        $current = max((int) Redis::get('active_downloads_count'), 0);
-        return response()->json([
-            'current' => $current,
-            'max' => 5,
-            'available' => $current < 5,
-            'wait_list' => $current >= 5 ? ($current - 4) : 0 
-        ]);
-    }
+    // public function serverStatus()
+    // {
+    //     $current = max((int) Redis::get('active_downloads_count'), 0);
+    //     return response()->json([
+    //         'current' => $current,
+    //         'max' => 5,
+    //         'available' => $current < 5,
+    //         'wait_list' => $current >= 5 ? ($current - 4) : 0 
+    //     ]);
+    // }
 }
