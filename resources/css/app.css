@@ -43,6 +43,22 @@
         animation: scan-pulse 1.2s ease-in-out infinite;
     }
 
+    .type-toggle {
+        @apply inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white p-1 shadow-sm dark:border-zinc-800 dark:bg-zinc-900;
+    }
+
+    .type-option {
+        @apply relative cursor-pointer rounded-full px-4 py-2 text-sm font-semibold text-zinc-500 transition hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white;
+    }
+
+    .type-option input {
+        @apply sr-only;
+    }
+
+    .type-option:has(input:checked) {
+        @apply bg-zinc-950 text-white shadow-sm dark:bg-white dark:text-zinc-950;
+    }
+
     .primary-button {
         @apply inline-flex min-h-11 items-center gap-2 rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200;
     }

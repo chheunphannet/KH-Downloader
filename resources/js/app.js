@@ -8,29 +8,44 @@ const siteStyles = {
 
 const $ = (selector, scope = document) => scope.querySelector(selector);
 
-document.addEventListener('DOMContentLoaded', () => {
+function bootApp() {
     const page = document.body.dataset.page;
 
-    if (page === 'home') {
+    if (page === 'home' || $('#analyzeForm')) {
         initDownloader();
     }
 
-    if (page === 'admin') {
+    if (page === 'admin' || $('#adminTokenForm')) {
         initAdminDashboard();
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootApp, { once: true });
+} else {
+    bootApp();
+}
 
 function initDownloader() {
     const form = $('#analyzeForm');
     const input = $('#urlInput');
     const searchShell = $('.search-shell');
     const button = $('#processButton');
+    const khdiamondTypeField = $('#khdiamondTypeField');
     const resultCard = $('#resultCard');
     const capacityBanner = $('#capacityBanner');
     const watchModal = $('#watchModal');
     const watchFrame = $('#watchFrame');
     const watchTitle = $('#watchTitle');
     const downloadFrame = $('#downloadFrame');
+    const scriptStatusMessage = $('#scriptStatusMessage');
+
+    if (!form || !input || !searchShell || !button || !resultCard || !capacityBanner) {
+        if (scriptStatusMessage) {
+            show(scriptStatusMessage);
+        }
+        return;
+    }
 
     const state = {
         result: null,
@@ -38,16 +53,26 @@ function initDownloader() {
         downloadFrame,
     };
 
+    if (scriptStatusMessage) {
+        hide(scriptStatusMessage);
+    }
+
     refreshServerStatus(state);
     window.setInterval(() => refreshServerStatus(state), statusPollMs);
 
+    input.addEventListener('input', () => {
+        updateKhdiamondTypeField(input.value, khdiamondTypeField);
+    });
+
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
-        const url = input.value.trim();
+        const url = normalizeInputUrl(input.value);
 
         if (!url) {
             return;
         }
+
+        input.value = url;
 
         setProcessing(true, searchShell, button);
         hide(capacityBanner);
@@ -55,13 +80,14 @@ function initDownloader() {
         resultCard.innerHTML = '';
 
         try {
+            const analyzePayload = buildAnalyzePayload(url, khdiamondTypeField);
             const response = await fetch('/api/analyze', {
                 method: 'POST',
                 headers: {
                     Accept: 'application/json',
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ url, type: 'movie' }),
+                body: JSON.stringify(analyzePayload),
             });
 
             const payload = await response.json().catch(() => ({}));
@@ -86,6 +112,11 @@ function initDownloader() {
         const subtitleButton = event.target.closest('[data-subtitle-url]');
 
         if (watchButton) {
+            if (!watchModal || !watchFrame || !watchTitle) {
+                showToast('Online playback is not available right now.', 'error');
+                return;
+            }
+
             watchTitle.textContent = state.result?.title || 'Watch Online';
             watchFrame.src = watchButton.dataset.watchUrl;
             show(watchModal);
@@ -122,11 +153,56 @@ function initDownloader() {
     });
 
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && !watchModal.classList.contains('hidden')) {
+        if (event.key === 'Escape' && watchModal && !watchModal.classList.contains('hidden')) {
             watchFrame.src = '';
             hide(watchModal);
         }
     });
+}
+
+function normalizeInputUrl(value) {
+    const url = String(value || '').trim();
+
+    if (!url) {
+        return '';
+    }
+
+    if (/^[a-z][a-z\d+\-.]*:\/\//i.test(url)) {
+        return url;
+    }
+
+    return `https://${url}`;
+}
+
+function buildAnalyzePayload(url, khdiamondTypeField) {
+    const payload = { url };
+
+    if (isKhdiamondUrl(url)) {
+        payload.type = selectedKhdiamondType(khdiamondTypeField);
+    }
+
+    return payload;
+}
+
+function selectedKhdiamondType(khdiamondTypeField) {
+    const selectedType = khdiamondTypeField?.querySelector('input[name="khdiamond_type"]:checked')?.value;
+    return selectedType === 'tv' ? 'tv' : 'movie';
+}
+
+function updateKhdiamondTypeField(url, khdiamondTypeField) {
+    if (!khdiamondTypeField) {
+        return;
+    }
+
+    khdiamondTypeField.classList.toggle('hidden', !isKhdiamondUrl(url));
+}
+
+function isKhdiamondUrl(url) {
+    try {
+        return new URL(url).hostname.toLowerCase().includes('khdiamond');
+    } catch {
+        return String(url || '').toLowerCase().includes('khdiamond');
+    }
 }
 
 async function refreshServerStatus(state = {}) {
@@ -362,29 +438,66 @@ function initAdminDashboard() {
     const form = $('#adminTokenForm');
     const input = $('#adminTokenInput');
     const logout = $('#adminLogoutButton');
+    const toggleBtn = $('#togglePasswordVisibility');
+    const eyeOpen = $('#eyeIconOpen');
+    const eyeClosed = $('#eyeIconClosed');
 
     const state = {
         token: window.sessionStorage.getItem('adminMetricsToken') || '',
         refreshTimer: null,
     };
 
+    if (toggleBtn && input && eyeOpen && eyeClosed) {
+        toggleBtn.addEventListener('click', () => {
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            eyeOpen.classList.toggle('hidden', !isPassword);
+            eyeClosed.classList.toggle('hidden', isPassword);
+        });
+    }
+
     if (state.token) {
-        showDashboard(gate, dashboard, logout);
         loadMetrics(state, gate, dashboard, logout);
     }
 
-    form.addEventListener('submit', (event) => {
+    form.addEventListener('submit', async (event) => {
         event.preventDefault();
-        state.token = input.value.trim();
+        const newToken = input.value.trim();
 
-        if (!state.token) {
+        if (!newToken) {
             showToast('Admin token is required.', 'error');
             return;
         }
 
-        window.sessionStorage.setItem('adminMetricsToken', state.token);
-        showDashboard(gate, dashboard, logout);
-        loadMetrics(state, gate, dashboard, logout);
+        // Disable form during check
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+            // Pre-verify token before showing dashboard
+            const response = await fetch('/api/metrics', {
+                headers: {
+                    Accept: 'application/json',
+                    Authorization: `Bearer ${newToken}`,
+                },
+            });
+
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                throw new Error(payload.message || 'Invalid admin API token.');
+            }
+
+            // If success, save token and show dashboard
+            state.token = newToken;
+            window.sessionStorage.setItem('adminMetricsToken', state.token);
+            showDashboard(gate, dashboard, logout);
+            loadMetrics(state, gate, dashboard, logout);
+            input.value = '';
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+        }
     });
 
     logout.addEventListener('click', () => {
@@ -490,11 +603,11 @@ function renderSiteRows(rows) {
 
     body.innerHTML = rows.map((row) => `
         <tr>
-            <td class="py-4">
-                <span class="site-badge ${(siteStyles[row.site_name] || { className: 'site-default' }).className}">${escapeHtml((siteStyles[row.site_name] || {}).label || row.site_name || 'Unknown')}</span>
+            <td class="p-5 pl-6">
+                <span class="site-badge px-3 py-1 ${(siteStyles[row.site_name] || { className: 'site-default' }).className}">${escapeHtml((siteStyles[row.site_name] || {}).label || row.site_name || 'Unknown')}</span>
             </td>
-            <td class="py-4 font-semibold text-zinc-900 dark:text-zinc-100">${Number(row.total_requests || 0).toLocaleString()}</td>
-            <td class="py-4 text-zinc-500 dark:text-zinc-400">${formatRelativeTime(row.updated_at)}</td>
+            <td class="p-5 font-semibold text-zinc-900 dark:text-zinc-100">${Number(row.total_requests || 0).toLocaleString()}</td>
+            <td class="p-5 text-zinc-500 dark:text-zinc-400">${formatRelativeTime(row.updated_at)}</td>
         </tr>
     `).join('');
 }
@@ -525,32 +638,23 @@ function renderActivityFeed(rows) {
 }
 
 function formatRelativeTime(value) {
-    const date = value ? new Date(value) : null;
+    if (!value) return 'Never';
+    
+    // Normalize date string (replace space with T for better cross-browser ISO support)
+    const normalizedValue = value.includes(' ') ? value.replace(' ', 'T') : value;
+    const date = new Date(normalizedValue);
 
-    if (!date || Number.isNaN(date.getTime())) {
-        return 'Unknown';
+    if (isNaN(date.getTime())) {
+        return value; // Fallback to raw string if parsing fails
     }
 
     const seconds = Math.max(Math.round((Date.now() - date.getTime()) / 1000), 0);
 
-    if (seconds < 60) {
-        return 'Just now';
-    }
-
-    const minutes = Math.round(seconds / 60);
-
-    if (minutes < 60) {
-        return `${minutes} min ago`;
-    }
-
-    const hours = Math.round(minutes / 60);
-
-    if (hours < 24) {
-        return `${hours} hr ago`;
-    }
-
-    const days = Math.round(hours / 24);
-    return `${days} day${days === 1 ? '' : 's'} ago`;
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    
+    return `${Math.floor(seconds / 86400)}d ago`;
 }
 
 function formatClock(value) {

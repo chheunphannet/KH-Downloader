@@ -1,16 +1,52 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Answers about KH Downloader supported sites, free use, download limits, privacy, and wait list behavior.">
-    <link rel="canonical" href="{{ route('pages.faq') }}">
-    <title>FAQ - KH Downloader</title>
-    <link rel="icon" type="image/webp" href="{{ asset('images/logo.webp') }}">
-    <link rel="shortcut icon" href="{{ asset('images/logo.webp') }}">
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-</head>
-<body class="min-h-screen bg-zinc-50 text-zinc-950 antialiased dark:bg-zinc-950 dark:text-zinc-50">
+@extends('layouts.app')
+
+@section('title', 'FAQ - KH Downloader')
+@section('meta_description', 'Answers about KH Downloader supported sites, free use, download limits, privacy, and wait list behavior.')
+
+@section('structured_data')
+<script type="application/ld+json">
+{
+  "@@context": "https://schema.org",
+  "@@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@@type": "Question",
+      "name": "What sites are supported?",
+      "acceptedAnswer": {
+        "@@type": "Answer",
+        "text": "KH Downloader currently supports KHDiamond, KHAnime, and KHFullHD links. Additional sources may be added after they are tested for reliable processing."
+      }
+    },
+    {
+      "@@type": "Question",
+      "name": "Is KH Downloader free?",
+      "acceptedAnswer": {
+        "@@type": "Answer",
+        "text": "Yes. The service is free to use and does not require account registration."
+      }
+    },
+    {
+      "@@type": "Question",
+      "name": "What is the download limit?",
+      "acceptedAnswer": {
+        "@@type": "Answer",
+        "text": "The service processes a limited number of downloads at one time to keep performance stable. If capacity is full, your request may wait until an active slot is available."
+      }
+    },
+    {
+      "@@type": "Question",
+      "name": "Do you store downloaded videos?",
+      "acceptedAnswer": {
+        "@@type": "Answer",
+        "text": "No. KH Downloader processes links for the requested download flow and does not keep a permanent copy of downloaded video files."
+      }
+    }
+  ]
+}
+</script>
+@endsection
+
+@section('content')
     <header class="border-b border-zinc-200 bg-white/90 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/90">
         <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
             <a href="{{ url('/') }}" class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">KH Downloader</a>
@@ -50,7 +86,4 @@
             </article>
         </section>
     </main>
-
-    <x-footer />
-</body>
-</html>
+@endsection

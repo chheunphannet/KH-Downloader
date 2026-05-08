@@ -1,16 +1,27 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="KH Downloader is a fast, high quality video downloader for KHDiamond, KHAnime, and KHFullHD links with no registration required.">
-    <link rel="canonical" href="{{ url('/') }}">
-    <title>KH Downloader - Fast High Quality Video Downloader</title>
-    <link rel="icon" type="image/webp" href="{{ asset('images/logo.webp') }}">
-    <link rel="shortcut icon" href="{{ asset('images/logo.webp') }}">
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-</head>
-<body data-page="home" class="min-h-screen bg-zinc-50 text-zinc-950 antialiased dark:bg-zinc-950 dark:text-zinc-50">
+@extends('layouts.app')
+
+@section('body_attributes', 'data-page="home"')
+
+@section('structured_data')
+<script type="application/ld+json">
+{
+  "@@context": "https://schema.org",
+  "@@type": "WebApplication",
+  "name": "KH Downloader",
+  "url": "{{ url('/') }}",
+  "description": "KH Downloader is a fast, high quality video downloader for KHDiamond, KHAnime, and KHFullHD links with no registration required.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "All",
+  "offers": {
+    "@@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  }
+}
+</script>
+@endsection
+
+@section('content')
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
     <iframe id="downloadFrame" name="downloadFrame" class="hidden" title="Download"></iframe>
 
@@ -42,12 +53,13 @@
 
             <h1 class="max-w-3xl text-balance text-4xl font-bold tracking-normal text-zinc-950 dark:text-white sm:text-6xl">Ultimate Video Downloader</h1>
 
-            <form id="analyzeForm" class="search-shell mt-8 w-full" autocomplete="off">
+            <form id="analyzeForm" class="search-shell mt-8 w-full" autocomplete="off" onsubmit="return false">
                 <label for="urlInput" class="sr-only">Video page URL</label>
                 <input
                     id="urlInput"
                     name="url"
-                    type="url"
+                    type="text"
+                    inputmode="url"
                     required
                     placeholder="Paste a video link"
                     class="min-w-0 flex-1 bg-transparent px-5 py-4 text-base text-zinc-950 outline-none placeholder:text-zinc-400 dark:text-white dark:placeholder:text-zinc-500 sm:text-lg"
@@ -57,6 +69,18 @@
                     <span class="button-spinner hidden" aria-hidden="true"></span>
                 </button>
             </form>
+
+            <fieldset id="khdiamondTypeField" class="type-toggle mt-4 hidden" aria-label="KHDiamond video type">
+                <legend class="sr-only">KHDiamond video type</legend>
+                <label class="type-option">
+                    <input type="radio" name="khdiamond_type" value="movie" checked>
+                    <span>Movie</span>
+                </label>
+                <label class="type-option">
+                    <input type="radio" name="khdiamond_type" value="tv">
+                    <span>TV Show</span>
+                </label>
+            </fieldset>
 
             <p class="mt-3 text-sm text-zinc-500 dark:text-zinc-400">Supported sites: KHDiamond, KHAnime, KHFullHD</p>
 
@@ -90,28 +114,27 @@
                     <p class="font-mono text-sm font-bold text-teal-600 dark:text-teal-400">02</p>
                     <div class="mt-5 grid h-14 w-14 place-items-center rounded-lg bg-teal-50 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300">
                         <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path d="m13 2-8 12h6l-1 8 9-13h-6l0-7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            <path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </div>
-                    <h3 class="mt-7 text-2xl font-bold text-zinc-950 dark:text-white">We process it</h3>
-                    <p class="mt-3 leading-7 text-zinc-600 dark:text-zinc-400">The server checks the link, finds available video options, and prepares the best download choices.</p>
+                    <h3 class="mt-7 text-2xl font-bold text-zinc-950 dark:text-white">Process</h3>
+                    <p class="mt-3 leading-7 text-zinc-600 dark:text-zinc-400">Click process and wait a few seconds while we fetch the highest quality direct download links for you.</p>
                 </article>
 
                 <article class="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
                     <p class="font-mono text-sm font-bold text-teal-600 dark:text-teal-400">03</p>
                     <div class="mt-5 grid h-14 w-14 place-items-center rounded-lg bg-teal-50 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300">
                         <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </div>
-                    <h3 class="mt-7 text-2xl font-bold text-zinc-950 dark:text-white">Download video</h3>
-                    <p class="mt-3 leading-7 text-zinc-600 dark:text-zinc-400">Choose your preferred quality and start the download. If the server is full, the app will show the wait status.</p>
+                    <h3 class="mt-7 text-2xl font-bold text-zinc-950 dark:text-white">Download</h3>
+                    <p class="mt-3 leading-7 text-zinc-600 dark:text-zinc-400">Choose your preferred quality and start the download. Your file will be ready in an instant.</p>
                 </article>
             </div>
         </section>
     </main>
-
-    <x-footer />
 
     <div id="watchModal" class="modal-shell hidden" role="dialog" aria-modal="true" aria-label="Watch online">
         <div class="modal-backdrop" data-close-watch></div>
@@ -129,5 +152,4 @@
             </div>
         </div>
     </div>
-</body>
-</html>
+@endsection
