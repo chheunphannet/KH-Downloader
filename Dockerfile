@@ -28,6 +28,7 @@ RUN apt-get update \
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY docker/php.ini /usr/local/etc/php/conf.d/khdownloader.ini
+COPY docker/php-fpm.conf /usr/local/etc/php-fpm.d/www.conf
 
 WORKDIR /var/www
 
