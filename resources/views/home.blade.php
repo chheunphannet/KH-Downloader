@@ -16,7 +16,7 @@
   "@@type": "WebApplication",
   "name": "KH Downloader",
   "url": "{{ url('/') }}",
-  "description": "KH Downloader is a fast, high quality video downloader and free online player for KHDiamond, KHAnime, and KHFullHD. Watch for free or download with no registration required.",
+  "description": "Fast video downloader & free player for KHDiamond, KHAnime, and KHFullHD. Watch for free or download in high quality with no registration required.",
   "applicationCategory": "MultimediaApplication",
   "operatingSystem": "All",
   "offers": {
