@@ -24,11 +24,13 @@ Route::get('/sitemap.xml', function () {
 ]);
 */
 
+/*
 Route::get('/robots.txt', function () {
     $content = "User-agent: *\n";
     $content .= "Disallow: /admin/\n\n";
     $content .= "Sitemap: " . url('/sitemap.xml');
     return response($content)->header('Content-Type', 'text/plain');
 });
+*/
 
 Route::view('/admin/metrics', 'admin.metrics')->name('admin.metrics');

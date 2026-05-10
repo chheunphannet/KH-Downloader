@@ -16,14 +16,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin.api' => EnsureAdminApiToken::class,
         ]);
-        $middleware->preventRequestForgery(except: [
-            'sitemap.xml',
-            'robots.txt',
-        ]);
-        $middleware->encryptCookies(except: [
-            'sitemap.xml',
-            'robots.txt',
-        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
