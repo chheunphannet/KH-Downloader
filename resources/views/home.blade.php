@@ -98,6 +98,28 @@
             <section id="resultCard" class="result-card mt-8 hidden w-full text-left" aria-live="polite"></section>
         </section>
 
+        <section id="supported-platforms" class="mx-auto mt-24 max-w-6xl">
+            <div class="text-center">
+                <h2 class="text-3xl font-bold tracking-normal text-zinc-950 dark:text-white sm:text-4xl">Supported Platforms</h2>
+                <p class="mt-4 text-base text-zinc-600 dark:text-zinc-400">High-speed downloading and free streaming for the best Cambodian video sites.</p>
+            </div>
+
+            <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="flex flex-col items-center p-6 text-center">
+                    <h3 class="text-2xl font-bold text-zinc-950 dark:text-white">KHDiamond Watch Free</h3>
+                    <p class="mt-3 text-zinc-600 dark:text-zinc-400 leading-relaxed">Watch KHDiamond videos online for free without an account. Our player supports all KHDiamond links with high-quality playback and fast loading.</p>
+                </div>
+                <div class="flex flex-col items-center p-6 text-center">
+                    <h3 class="text-2xl font-bold text-zinc-950 dark:text-white">KHAnime Download</h3>
+                    <p class="mt-3 text-zinc-600 dark:text-zinc-400 leading-relaxed">Download your favorite anime from KHAnime instantly. Get high-quality video files and watch your anime offline anytime, anywhere.</p>
+                </div>
+                <div class="flex flex-col items-center p-6 text-center sm:col-span-2 lg:col-span-1">
+                    <h3 class="text-2xl font-bold text-zinc-950 dark:text-white">KHFullHD Downloader</h3>
+                    <p class="mt-3 text-zinc-600 dark:text-zinc-400 leading-relaxed">The best way to download from KHFullHD. Extract high-definition video links and save them directly to your device with one click.</p>
+                </div>
+            </div>
+        </section>
+
         <section id="how-it-works" class="mx-auto mt-24 max-w-6xl scroll-mt-24">
             <div class="max-w-3xl">
                 <p class="text-sm font-semibold uppercase tracking-[0.18em] text-teal-600 dark:text-teal-400">How It Works</p>
