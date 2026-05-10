@@ -1,13 +1,21 @@
 @extends('layouts.app')
 
 @section('body_attributes', 'data-page="home"')
-
 @section('structured_data')
+<script type="application/ld+json">
+{
+  "@@context": "https://schema.org",
+  "@@type": "WebSite",
+  "name": "KH Downloader",
+  "url": "{{ url('/') }}"
+}
+</script>
 <script type="application/ld+json">
 {
   "@@context": "https://schema.org",
   "@@type": "WebApplication",
   "name": "KH Downloader",
+...
   "url": "{{ url('/') }}",
   "description": "KH Downloader is a fast, high quality video downloader for KHDiamond, KHAnime, and KHFullHD links with no registration required.",
   "applicationCategory": "MultimediaApplication",
