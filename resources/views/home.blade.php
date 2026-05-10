@@ -58,7 +58,7 @@
                 >
             </div>
 
-            <h1 class="max-w-3xl text-balance text-4xl font-bold tracking-normal text-zinc-950 dark:text-white sm:text-6xl">Ultimate Video Downloader</h1>
+            <h1 class="max-w-3xl text-balance text-4xl font-bold tracking-normal text-zinc-950 dark:text-white sm:text-6xl">KH Downloader</h1>
 
             <form id="analyzeForm" class="search-shell mt-8 w-full" autocomplete="off" onsubmit="return false">
                 <label for="urlInput" class="sr-only">Video page URL</label>
