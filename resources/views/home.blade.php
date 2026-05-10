@@ -15,9 +15,8 @@
   "@@context": "https://schema.org",
   "@@type": "WebApplication",
   "name": "KH Downloader",
-...
   "url": "{{ url('/') }}",
-  "description": "KH Downloader is a fast, high quality video downloader for KHDiamond, KHAnime, and KHFullHD links with no registration required.",
+  "description": "KH Downloader is a fast, high quality video downloader and free online player for KHDiamond, KHAnime, and KHFullHD. Watch for free or download with no registration required.",
   "applicationCategory": "MultimediaApplication",
   "operatingSystem": "All",
   "offers": {
@@ -103,7 +102,7 @@
             <div class="max-w-3xl">
                 <p class="text-sm font-semibold uppercase tracking-[0.18em] text-teal-600 dark:text-teal-400">How It Works</p>
                 <h2 class="mt-3 text-3xl font-bold tracking-normal text-zinc-950 dark:text-white sm:text-5xl">Three steps. No friction.</h2>
-                <p class="mt-4 text-base leading-7 text-zinc-600 dark:text-zinc-400 sm:text-lg">KH Downloader is a link in, file out tool. No account, no desktop app, no browser extension. Paste your supported video link and go.</p>
+                <p class="mt-4 text-base leading-7 text-zinc-600 dark:text-zinc-400 sm:text-lg">KH Downloader is a link in, file out tool. No account required. Paste your supported video link to watch for free online or download in high quality instantly.</p>
             </div>
 
             <div class="mt-10 grid gap-5 md:grid-cols-3">

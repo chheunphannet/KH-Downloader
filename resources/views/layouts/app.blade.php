@@ -7,13 +7,13 @@
 
     {{-- SEO Tags --}}
     <title>@yield('title', 'KH Downloader - Fast High Quality Video Downloader')</title>
-    <meta name="description" content="@yield('meta_description', 'KH Downloader is a fast, high quality video downloader for KHDiamond, KHAnime, and KHFullHD links with no registration required.')">
+    <meta name="description" content="@yield('meta_description', 'KH Downloader is a fast, high quality video downloader and free online player for KHDiamond, KHAnime, and KHFullHD. Watch for free or download with no registration required.')">
     <link rel="canonical" href="{{ url()->current() }}">
 
     {{-- Social Media (Open Graph) --}}
     <meta property="og:site_name" content="KH Downloader">
     <meta property="og:title" content="@yield('title', 'KH Downloader - Fast High Quality Video Downloader')">
-    <meta property="og:description" content="@yield('meta_description', 'KH Downloader is a fast, high quality video downloader for KHDiamond, KHAnime, and KHFullHD links with no registration required.')">
+    <meta property="og:description" content="@yield('meta_description', 'KH Downloader is a fast, high quality video downloader and free online player for KHDiamond, KHAnime, and KHFullHD. Watch for free or download with no registration required.')">
     <meta property="og:url" content="{{ url()->current() }}">
     <meta property="og:type" content="website">
     <meta property="og:image" content="@yield('og_image', asset('images/logo.webp'))">
@@ -21,7 +21,7 @@
     {{-- Twitter --}}
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="@yield('title', 'KH Downloader - Fast High Quality Video Downloader')">
-    <meta name="twitter:description" content="@yield('meta_description', 'KH Downloader is a fast, high quality video downloader for KHDiamond, KHAnime, and KHFullHD links with no registration required.')">
+    <meta name="twitter:description" content="@yield('meta_description', 'KH Downloader is a fast, high quality video downloader and free online player for KHDiamond, KHAnime, and KHFullHD. Watch for free or download with no registration required.')">
     <meta name="twitter:image" content="@yield('og_image', asset('images/logo.webp'))">
 
     {{-- Favicons --}}
