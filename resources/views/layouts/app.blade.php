@@ -9,6 +9,7 @@
     <title>@yield('title', 'KH Downloader - Fast High Quality Video Downloader')</title>
     <meta name="description" content="@yield('meta_description', 'Fast video downloader & free player for KHDiamond, KHAnime, and KHFullHD. Watch for free or download in high quality with no registration required.')">
     <link rel="canonical" href="{{ url()->current() }}">
+    <meta name="msvalidate.01" content="D56C8E1B28E0A11255A38EBC06B6539A" />
 
     {{-- Social Media (Open Graph) --}}
     <meta property="og:site_name" content="KH Downloader">
