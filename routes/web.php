@@ -11,6 +11,7 @@ Route::get('/faq', [PageController::class, 'faq'])->name('pages.faq');
 Route::get('/terms', [PageController::class, 'terms'])->name('pages.terms');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('pages.privacy');
 
+/*
 Route::get('/sitemap.xml', function () {
     return response()->view('sitemap')
         ->header('Content-Type', 'text/xml')
@@ -21,6 +22,7 @@ Route::get('/sitemap.xml', function () {
     \Illuminate\Cookie\Middleware\EncryptCookies::class,
     \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
 ]);
+*/
 
 Route::get('/robots.txt', function () {
     $content = "User-agent: *\n";
