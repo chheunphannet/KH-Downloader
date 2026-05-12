@@ -99,11 +99,6 @@
         </section>
 
         <section id="supported-platforms" class="mx-auto mt-24 max-w-6xl">
-            <div class="text-center">
-                <h2 class="text-3xl font-bold tracking-normal text-zinc-950 dark:text-white sm:text-4xl">Supported Platforms</h2>
-                <p class="mt-4 text-base text-zinc-600 dark:text-zinc-400">High-speed downloading and free streaming for the best Cambodian video sites.</p>
-            </div>
-
             <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
                 <div class="flex flex-col items-center p-6 text-center">
                     <h3 class="text-2xl font-bold text-zinc-950 dark:text-white">KHDiamond Watch Free</h3>
