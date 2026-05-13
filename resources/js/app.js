@@ -457,6 +457,7 @@ function initAdminDashboard() {
     }
 
     if (state.token) {
+        showDashboard(gate, dashboard, logout);
         loadMetrics(state, gate, dashboard, logout);
     }
 
