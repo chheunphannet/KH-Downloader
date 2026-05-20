@@ -2,7 +2,8 @@
 
 @section('title', 'Admin Dashboard - KH Downloader')
 
-@section('body_attributes', 'data-page="admin" class="bg-zinc-950 text-zinc-400 antialiased selection:bg-teal-500/30"')
+@section('page_name', 'admin')
+@section('page_body_class', 'bg-zinc-950 text-zinc-400')
 
 @section('content')
 <style>

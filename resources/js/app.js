@@ -9,14 +9,29 @@ const siteStyles = {
 const $ = (selector, scope = document) => scope.querySelector(selector);
 
 function bootApp() {
-    const page = document.body.dataset.page;
-
-    if (page === 'home' || $('#analyzeForm')) {
-        initDownloader();
+    const body = document.body;
+    if (!body) {
+        console.warn('[KHDownloader] bootApp called but document.body is null, waiting for DOMContentLoaded');
+        document.addEventListener('DOMContentLoaded', bootApp, { once: true });
+        return;
     }
 
-    if (page === 'admin' || $('#adminTokenForm')) {
+    const page = body.dataset.page;
+    console.log('[KHDownloader] Booting app. Page:', page);
+
+    if (page === 'home') {
+        initDownloader();
+    } else if (page === 'watch') {
+        initWatchPage();
+    } else if (page === 'admin') {
         initAdminDashboard();
+    } else {
+        // Fallback for hybrid loads or mismatched page data attributes
+        if ($('#analyzeForm')) {
+            initDownloader();
+        } else if ($('#adminTokenForm')) {
+            initAdminDashboard();
+        }
     }
 }
 
@@ -31,7 +46,6 @@ function initDownloader() {
     const input = $('#urlInput');
     const searchShell = $('.search-shell');
     const button = $('#processButton');
-    const khdiamondTypeField = $('#khdiamondTypeField');
     const resultCard = $('#resultCard');
     const capacityBanner = $('#capacityBanner');
     const watchModal = $('#watchModal');
@@ -60,9 +74,7 @@ function initDownloader() {
     refreshServerStatus(state);
     window.setInterval(() => refreshServerStatus(state), statusPollMs);
 
-    input.addEventListener('input', () => {
-        updateKhdiamondTypeField(input.value, khdiamondTypeField);
-    });
+
 
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -74,13 +86,21 @@ function initDownloader() {
 
         input.value = url;
 
+        // Redirect directly if URL is from a supported site
+        const supported = detectSupportedUrl(url);
+        if (supported) {
+            setProcessing(true, searchShell, button);
+            window.location.href = `/watch/${supported.site}/${supported.slug}`;
+            return;
+        }
+
         setProcessing(true, searchShell, button);
         hide(capacityBanner);
         hide(resultCard);
         resultCard.innerHTML = '';
 
         try {
-            const analyzePayload = buildAnalyzePayload(url, khdiamondTypeField);
+            const analyzePayload = buildAnalyzePayload(url);
             const response = await fetch('/api/analyze', {
                 method: 'POST',
                 headers: {
@@ -110,6 +130,20 @@ function initDownloader() {
         const watchButton = event.target.closest('[data-watch-url]');
         const downloadControl = event.target.closest('[data-download-quality]');
         const subtitleButton = event.target.closest('[data-subtitle-url]');
+        const nextEpisodeButton = event.target.closest('#nextEpisodeButton');
+
+        if (nextEpisodeButton) {
+            const nextUrl = nextEpisodeButton.dataset.nextUrl;
+            if (nextUrl) {
+                input.value = nextUrl;
+                if (form.requestSubmit) {
+                    form.requestSubmit();
+                } else {
+                    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                }
+            }
+            return;
+        }
 
         if (watchButton) {
             if (!watchModal || !watchFrame || !watchTitle) {
@@ -174,27 +208,8 @@ function normalizeInputUrl(value) {
     return `https://${url}`;
 }
 
-function buildAnalyzePayload(url, khdiamondTypeField) {
-    const payload = { url };
-
-    if (isKhdiamondUrl(url)) {
-        payload.type = selectedKhdiamondType(khdiamondTypeField);
-    }
-
-    return payload;
-}
-
-function selectedKhdiamondType(khdiamondTypeField) {
-    const selectedType = khdiamondTypeField?.querySelector('input[name="khdiamond_type"]:checked')?.value;
-    return selectedType === 'tv' ? 'tv' : 'movie';
-}
-
-function updateKhdiamondTypeField(url, khdiamondTypeField) {
-    if (!khdiamondTypeField) {
-        return;
-    }
-
-    khdiamondTypeField.classList.toggle('hidden', !isKhdiamondUrl(url));
+function buildAnalyzePayload(url) {
+    return { url };
 }
 
 function isKhdiamondUrl(url) {
@@ -273,13 +288,18 @@ function renderResultCard(container, result, state) {
 
     container.innerHTML = `
         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
                 <div class="mb-3 flex flex-wrap items-center gap-2">
                     <span class="site-badge ${site.className}">${escapeHtml(site.label)}</span>
                     ${result.can_watch ? '<span class="site-badge site-default">Watch Ready</span>' : ''}
                 </div>
                 <h2 class="break-words text-2xl font-bold tracking-normal text-zinc-950 dark:text-white">${escapeHtml(result.title || 'Untitled Video')}</h2>
             </div>
+            ${result.next_url ? `
+            <button type="button" id="nextEpisodeButton" class="primary-button justify-center rounded-lg whitespace-nowrap self-start" data-next-url="${escapeAttr(result.next_url)}">
+                Next Episode
+            </button>
+            ` : ''}
         </div>
 
         <div class="mt-6 grid gap-4 lg:grid-cols-2">
@@ -704,3 +724,185 @@ function escapeHtml(value) {
 function escapeAttr(value) {
     return escapeHtml(value).replaceAll('`', '&#096;');
 }
+
+function detectSupportedUrl(url) {
+    try {
+        const parsed = new URL(url);
+        const host = parsed.hostname.toLowerCase();
+        const path = parsed.pathname;
+
+        let site = null;
+        if (host.includes('khdiamond.net')) site = 'khdiamond';
+        else if (host.includes('khanime.co')) site = 'khanime';
+        else if (host.includes('khfullhd.co')) site = 'khfullhd';
+
+        if (site) {
+            const slug = path.replace(/^\//, '');
+            if (slug && slug.length > 1) {
+                return { site, slug };
+            }
+        }
+    } catch (e) {
+        let site = null;
+        if (url.includes('khdiamond.net')) site = 'khdiamond';
+        else if (url.includes('khanime.co')) site = 'khanime';
+        else if (url.includes('khfullhd.co')) site = 'khfullhd';
+
+        if (site) {
+            const parts = url.split(site + (site === 'khdiamond' ? '.net/' : '.co/'));
+            if (parts.length > 1) {
+                return { site, slug: parts[1] };
+            }
+        }
+    }
+    return null;
+}
+
+function initWatchPage() {
+    const body = document.body;
+    const site = body.dataset.site;
+    const rawSlug = body.dataset.slug;
+
+    console.log('[KHDownloader] initWatchPage starting', { site, rawSlug });
+
+    if (!site || !rawSlug) {
+        console.error('[KHDownloader] Missing site or slug in body dataset!', { site, rawSlug });
+        return;
+    }
+
+    // Clean leading/trailing slashes from slug to ensure clean REST API paths
+    const slug = rawSlug.replace(/^\/+|\/+$/g, '');
+    console.log('[KHDownloader] Normalized watch slug:', slug);
+
+    const playerSkeleton = $('#playerSkeleton');
+    const playerError = $('#playerError');
+    const watchEmbedFrame = $('#watchEmbedFrame');
+    const directStreamPlaceholder = $('#directStreamPlaceholder');
+    const downloadsSkeleton = $('#downloadsSkeleton');
+    const downloadsList = $('#downloadsList');
+    const watchSubtitlesSection = $('#watchSubtitlesSection');
+    const watchSubtitlesList = $('#watchSubtitlesList');
+    const watchNextBtn = $('#watchNextEpisodeButton');
+    const retryBtn = $('#playerRetryButton');
+
+    const downloadFrame = $('#downloadFrame');
+
+    const state = {
+        result: null,
+        serverStatus: null,
+        downloadFrame,
+    };
+
+    refreshServerStatus(state);
+    window.setInterval(() => refreshServerStatus(state), statusPollMs);
+
+    async function loadStreams() {
+        show(playerSkeleton);
+        hide(playerError);
+        if (watchEmbedFrame) hide(watchEmbedFrame);
+        if (directStreamPlaceholder) hide(directStreamPlaceholder);
+        show(downloadsSkeleton);
+        hide(downloadsList);
+
+        try {
+            const fetchUrl = `/api/streams/${site}/${slug}`;
+            console.log('[KHDownloader] Fetching stream info from:', fetchUrl);
+
+            const response = await fetch(fetchUrl, {
+                headers: { Accept: 'application/json' },
+            });
+
+            const payload = await response.json().catch(() => ({}));
+            console.log('[KHDownloader] Stream response received:', { ok: response.ok, status: response.status, payload });
+
+            if (!response.ok) {
+                throw new Error(payload.error || 'Failed to fetch streams');
+            }
+
+            state.result = payload;
+
+            hide(playerSkeleton);
+            if (site === 'khdiamond') {
+                if (payload.embed_url) {
+                    watchEmbedFrame.src = payload.embed_url;
+                    show(watchEmbedFrame);
+                } else {
+                    show(playerError);
+                }
+            } else {
+                if (directStreamPlaceholder) show(directStreamPlaceholder);
+            }
+
+            const links = Object.entries(payload.links || {}).sort(([a], [b]) => Number(b) - Number(a));
+            hide(downloadsSkeleton);
+            if (links.length) {
+                downloadsList.innerHTML = links.map(([quality, link]) => renderDownloadButton(quality, link)).join('');
+                show(downloadsList);
+            } else {
+                downloadsList.innerHTML = renderEmptyState('No download links found.');
+                show(downloadsList);
+            }
+
+            const subtitles = Array.isArray(payload.subtitles) ? payload.subtitles : [];
+            if (subtitles.length) {
+                watchSubtitlesList.innerHTML = subtitles.map((subtitle) => `
+                    <button type="button" class="subtitle-chip" data-subtitle-url="${escapeAttr(subtitle.file)}">
+                        <span class="rounded bg-zinc-900 px-1.5 py-0.5 text-[10px] font-bold text-white dark:bg-white dark:text-zinc-950">CC</span>
+                        <span>${escapeHtml(subtitle.label || 'Subtitle')}</span>
+                    </button>
+                `).join('');
+                show(watchSubtitlesSection);
+            } else {
+                hide(watchSubtitlesSection);
+            }
+
+        } catch (err) {
+            hide(playerSkeleton);
+            show(playerError);
+            hide(downloadsSkeleton);
+            downloadsList.innerHTML = renderEmptyState('Failed to load download options. Please try again.');
+            show(downloadsList);
+            showToast(err.message || 'Verification or extraction failed.', 'error');
+        }
+    }
+
+    loadStreams();
+
+    retryBtn?.addEventListener('click', loadStreams);
+
+    downloadsList?.addEventListener('click', (event) => {
+        const downloadControl = event.target.closest('[data-download-quality]');
+        if (downloadControl) {
+            handleDownloadClick(event, downloadControl, state, $('#capacityBanner'));
+        }
+    });
+
+    watchSubtitlesList?.addEventListener('click', (event) => {
+        const subtitleButton = event.target.closest('[data-subtitle-url]');
+        if (subtitleButton) {
+            window.open(subtitleButton.dataset.subtitleUrl, '_blank', 'noopener');
+        }
+    });
+
+    if (watchNextBtn) {
+        watchNextBtn.addEventListener('click', () => {
+            const nextUrl = watchNextBtn.dataset.nextUrl;
+            const supported = detectSupportedUrl(nextUrl);
+            if (supported) {
+                window.location.href = `/watch/${supported.site}/${supported.slug}`;
+            } else {
+                window.location.href = `/`;
+            }
+        });
+    }
+
+    downloadFrame?.addEventListener('load', () => {
+        const message = downloadFrame.contentDocument?.body?.textContent?.trim();
+        if (message) {
+            showToast(downloadErrorMessage(message), 'error');
+            resetStartingDownloads();
+            refreshServerStatus(state);
+        }
+    });
+}
+

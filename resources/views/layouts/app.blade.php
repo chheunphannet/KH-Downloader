@@ -35,7 +35,7 @@
     {{-- Structured Data --}}
     @yield('structured_data')
 </head>
-<body @yield('body_attributes') class="min-h-screen bg-zinc-50 text-zinc-950 antialiased dark:bg-zinc-950 dark:text-zinc-50">
+<body data-page="@yield('page_name', 'other')" data-site="@yield('page_site', '')" data-slug="@yield('page_slug', '')" class="min-h-screen @yield('page_body_class', 'bg-zinc-50 text-zinc-950') antialiased dark:bg-zinc-950 dark:text-zinc-50">
     @yield('content')
 
     <x-footer />

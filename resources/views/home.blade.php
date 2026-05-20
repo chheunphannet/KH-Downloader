@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('body_attributes', 'data-page="home"')
+@section('page_name', 'home')
 @section('structured_data')
 <script type="application/ld+json">
 {
@@ -77,17 +77,7 @@
                 </button>
             </form>
 
-            <fieldset id="khdiamondTypeField" class="type-toggle mt-4 hidden" aria-label="KHDiamond video type">
-                <legend class="sr-only">KHDiamond video type</legend>
-                <label class="type-option">
-                    <input type="radio" name="khdiamond_type" value="movie" checked>
-                    <span>Movie</span>
-                </label>
-                <label class="type-option">
-                    <input type="radio" name="khdiamond_type" value="tv">
-                    <span>TV Show</span>
-                </label>
-            </fieldset>
+
 
             <p class="mt-3 text-sm text-zinc-500 dark:text-zinc-400">Supported sites: KHDiamond, KHAnime, KHFullHD</p>
 

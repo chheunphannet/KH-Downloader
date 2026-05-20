@@ -11,6 +11,11 @@ Route::get('/faq', [PageController::class, 'faq'])->name('pages.faq');
 Route::get('/terms', [PageController::class, 'terms'])->name('pages.terms');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('pages.privacy');
 
+Route::get('/watch/{site}/{slug}', [PageController::class, 'watch'])
+    ->name('video.watch')
+    ->where('slug', '.*');
+
+
 /*
 Route::get('/sitemap.xml', function () {
     return response()->view('sitemap')

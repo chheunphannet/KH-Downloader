@@ -26,8 +26,27 @@ class StreamService{
         $postid = $this->detectPostId($pageHtml);
 
         if($postid){
-          $response = $this -> getEmbedUrl($postid, $movie_type, $pageUrl);
+          if (
+              str_contains($pageHtml, 'single-episodes') || 
+              str_contains($pageHtml, 'single-tvshows') || 
+              str_contains($pageUrl, '/episodes/') || 
+              str_contains($pageUrl, '/tvshows/')
+          ) {
+              $movie_type = 'tv';
+          } else {
+              $movie_type = 'movie';
+          }
+
+          $response = $this->getEmbedUrl($postid, $movie_type, $pageUrl);
           $stream_url = $this->normalizeUrl($response['embed_url']);
+
+          $nextUrl = null;
+          if ($movie_type === 'tv') {
+              if (preg_match('/<a href=[\'"]([^\'"]+)[\'"][^>]*>\s*<span>ភាគបន្ទាប់<\/span>/', $pageHtml, $nextMatches)) {
+                  $nextUrl = $nextMatches[1];
+              }
+          }
+
           return [
             'site'=> $site,
             'movie_name' => $movie_name,
@@ -35,7 +54,10 @@ class StreamService{
             'embed_url' => $response['embed_url'],
             'referer' => $this->getBaseUrl($response['embed_url']),
             'type' => $response['type'],
-            'stream_url' =>  $stream_url
+            'stream_url' =>  $stream_url,
+            'next_url' => $nextUrl,
+            'postid' => $postid,
+            'movie_type' => $movie_type,
           ];
         }
       }
@@ -148,6 +170,8 @@ public function analyzeStream(
         'subtitles' => $data['subtitles'] ?? null,
         'referer'   => $data['referer'] ?? null,
         'links'     => $downloadLinks,
+        'next_url'  => $data['next_url'] ?? null,
+        'stream_url'=> $data['stream_url'] ?? null,
     ];
 }
 
@@ -653,5 +677,51 @@ private function fetchHtml(string $url, string $referer): string
     throw new \Exception("Failed to fetch: $url (status {$response->status()})");
   }
   return $response->body();
+}
+
+public function reconstructUrl(string $site, string $slug): string
+{
+    $domain = match ($site) {
+        'khdiamond' => 'khdiamond.net',
+        'khanime' => 'khanime.co',
+        'khfullhd' => 'khfullhd.co',
+        default => throw new \InvalidArgumentException("Unsupported site: {$site}"),
+    };
+    return "https://{$domain}/" . ltrim($slug, '/');
+}
+
+/**
+ * Fetch a fresh embed_url from khdiamond using cached postid.
+ * This is a lightweight call (1 HTTP request) that avoids re-scraping the full page.
+ */
+public function refreshKhdiamondEmbed(int $postid, string $movieType, string $pageUrl): array
+{
+    $response = $this->getEmbedUrl($postid, $movieType, $pageUrl);
+    return [
+        'embed_url' => $response['embed_url'],
+    ];
+}
+
+public function verifyHlsManifest(?string $url, string $referer): bool
+{
+    if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
+        return false;
+    }
+    try {
+        $response = Http::withHeaders([
+            'Referer' => $referer,
+            'User-Agent' => $this->userAgent,
+        ])->withoutVerifying()->timeout(2.5)->get($url);
+
+        if ($response->successful()) {
+            $body = $response->body();
+            return str_contains($body, '#EXTM3U') ||
+                   str_contains($response->header('Content-Type') ?? '', 'video') ||
+                   str_contains($response->header('content-type') ?? '', 'video');
+        }
+    } catch (\Throwable $e) {
+        logger()->warning('Manifest check failed', ['url' => $url, 'error' => $e->getMessage()]);
+    }
+    return false;
 }
 }
