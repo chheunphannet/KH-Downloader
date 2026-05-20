@@ -62,6 +62,20 @@
         </div>
 
         <!-- Main Content Area: Player & Downloads -->
+        @if(isset($meta['error']))
+            <div class="rounded-xl border border-red-200 bg-red-50 p-8 text-center shadow-sm dark:border-red-900/30 dark:bg-red-500/10">
+                <svg class="mx-auto h-12 w-12 text-red-500 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <h3 class="text-xl font-bold text-red-800 dark:text-red-200">Failed to Load Video</h3>
+                <p class="mt-2 text-sm text-red-600 dark:text-red-400 max-w-2xl mx-auto">{{ $meta['error'] }}</p>
+                <a href="/" class="primary-button mt-6 inline-flex">Go back to search</a>
+            </div>
+            <!-- Hack to prevent initWatchPage from trying to load streams -->
+            <script>
+                document.body.removeAttribute('data-site');
+            </script>
+        @else
         <div class="grid gap-6 lg:grid-cols-3">
             <!-- Left Column: Video Player Card -->
             <div class="lg:col-span-2">
@@ -140,6 +154,7 @@
                 </div>
             </div>
         </div>
+        @endif
 
         <!-- Subtitles drawer if present -->
         <div id="watchSubtitlesSection" class="mt-8 border-t border-zinc-200 pt-5 dark:border-zinc-800 hidden">

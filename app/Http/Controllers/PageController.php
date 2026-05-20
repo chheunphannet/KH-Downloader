@@ -47,7 +47,14 @@ class PageController extends Controller
                 Redis::set($cacheKey, json_encode($meta));
             } catch (\Throwable $e) {
                 logger()->error('Metadata fetch failed on watch', ['url' => $pageUrl, 'error' => $e->getMessage()]);
-                abort(404, 'Video page not found or unable to scrape metadata.');
+                // Instead of abort(404) which looks like a routing error, pass the error to the view
+                $meta = [
+                    'site' => $site,
+                    'slug' => $slug,
+                    'title' => 'Error Loading Video',
+                    'error' => 'Unable to scrape video metadata. The target site might be blocking your VPS IP, or the video link is invalid. Details: ' . $e->getMessage(),
+                    'page_url' => $pageUrl,
+                ];
             }
         }
 
