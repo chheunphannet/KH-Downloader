@@ -825,21 +825,28 @@ function initWatchPage() {
             if (site === 'khdiamond') {
                 if (payload.embed_url) {
                     watchEmbedFrame.src = payload.embed_url;
+                    watchEmbedFrame.classList.add('animate-fade-in');
                     show(watchEmbedFrame);
                 } else {
+                    playerError.classList.add('animate-fade-in');
                     show(playerError);
                 }
             } else {
-                if (directStreamPlaceholder) show(directStreamPlaceholder);
+                if (directStreamPlaceholder) {
+                    directStreamPlaceholder.classList.add('animate-fade-in');
+                    show(directStreamPlaceholder);
+                }
             }
 
             const links = Object.entries(payload.links || {}).sort(([a], [b]) => Number(b) - Number(a));
             hide(downloadsSkeleton);
             if (links.length) {
                 downloadsList.innerHTML = links.map(([quality, link]) => renderDownloadButton(quality, link)).join('');
+                downloadsList.classList.add('animate-fade-in');
                 show(downloadsList);
             } else {
                 downloadsList.innerHTML = renderEmptyState('No download links found.');
+                downloadsList.classList.add('animate-fade-in');
                 show(downloadsList);
             }
 
