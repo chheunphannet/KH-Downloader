@@ -21,6 +21,8 @@ RUN apt-get update \
         python3 \
         unzip \
     && docker-php-ext-install curl dom mbstring pdo_mysql \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
     && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
     && chmod a+rx /usr/local/bin/yt-dlp \
     && apt-get clean \
