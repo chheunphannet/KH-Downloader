@@ -586,7 +586,24 @@ private function downloadTempDirectory(): string
     }
 
     private function detectPostId(string $html): ?int{
-      if (preg_match('/postid-(\d+)/' ,$html, $m)) return $m[1];
+      // 1. Try legacy body class / postid class
+      if (preg_match('/postid-(\d+)/', $html, $m)) {
+          return (int) $m[1];
+      }
+
+      // 2. Try input type hidden element: <input ... name="postid" ... value="123">
+      if (preg_match('/<input[^>]*name=["\']postid["\'][^>]*value=["\'](\d+)["\']/i', $html, $m)) {
+          return (int) $m[1];
+      }
+      if (preg_match('/<input[^>]*value=["\'](\d+)["\'][^>]*name=["\']postid["\']/i', $html, $m)) {
+          return (int) $m[1];
+      }
+
+      // 3. Try data-post attribute: data-post="123"
+      if (preg_match('/data-post=["\'](\d+)["\']/', $html, $m)) {
+          return (int) $m[1];
+      }
+
       return null;
     }
 
