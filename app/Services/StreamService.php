@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\URL;
 use Symfony\Component\Process\Process as SymfonyProcess;
+use Illuminate\Support\Facades\Log;
 
 class StreamService{
     private string $userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
@@ -23,7 +24,29 @@ class StreamService{
       $pageHtml = $this->fetchHtml($pageUrl, "https://$host");
 
       if($site === 'khdiamond'){
-        $postid = $this->detectPostId($pageHtml);
+        // --- Try to load postid from permanent Redis cache first ---
+        $postidCacheKey = "video:postid:khdiamond:{$movie_name}";
+        $cachedPostid   = Redis::get($postidCacheKey);
+
+        if ($cachedPostid) {
+            // postid is cached — skip page fetch entirely (no FlareSolverr needed)
+            $postid = (int) $cachedPostid;
+            Log::debug('khdiamond: postid loaded from cache', ['postid' => $postid]);
+        } else {
+            // postid not cached — fetch page HTML (uses FlareSolverr if configured)
+            $postid = $this->detectPostId($pageHtml);
+
+            if ($postid) {
+                // Cache postid permanently (it never changes for a given movie)
+                $postidTtl = (int) config('streaming.cache.postid_ttl', 0);
+                if ($postidTtl > 0) {
+                    Redis::setex($postidCacheKey, $postidTtl, $postid);
+                } else {
+                    Redis::set($postidCacheKey, $postid); // no expiry = forever
+                }
+                Log::debug('khdiamond: postid scraped and cached', ['postid' => $postid]);
+            }
+        }
 
         if($postid){
           if (
@@ -685,15 +708,62 @@ private function getEmbedUrl(int $postid, string $movie_type, string $pageUrl) {
 
 private function fetchHtml(string $url, string $referer): string
 {
-  $response = Http::withHeaders([
-     'User-Agent' => $this->userAgent,
-     'Referer'    => $referer,
-  ])->withoutVerifying()->get($url);
+    $response = Http::withHeaders([
+        'User-Agent' => $this->userAgent,
+        'Referer'    => $referer,
+    ])->withoutVerifying()->get($url);
 
-  if(!$response->ok()){
-    throw new \Exception("Failed to fetch: $url (status {$response->status()})");
-  }
-  return $response->body();
+    // If blocked by Cloudflare (403) and FlareSolverr is enabled, retry through it
+    if ($response->status() === 403 && config('streaming.flaresolverr.enabled', false)) {
+        Log::debug('fetchHtml: got 403, retrying via FlareSolverr', ['url' => $url]);
+        return $this->fetchHtmlWithFlareSolverr($url);
+    }
+
+    if (!$response->ok()) {
+        throw new \Exception("Failed to fetch: $url (status {$response->status()})");
+    }
+
+    return $response->body();
+}
+
+/**
+ * Fetch a URL via FlareSolverr to bypass Cloudflare bot protection.
+ * Only called when fetchHtml() receives a 403 and FLARESOLVERR_ENABLED=true.
+ *
+ * FlareSolverr API docs: https://github.com/FlareSolverr/FlareSolverr
+ */
+private function fetchHtmlWithFlareSolverr(string $url): string
+{
+    $flareUrl = config('streaming.flaresolverr.url', 'http://flaresolverr:8191/v1');
+    $timeout  = (int) config('streaming.flaresolverr.timeout', 60000);
+
+    $response = Http::timeout(90)->post($flareUrl, [
+        'cmd'        => 'request.get',
+        'url'        => $url,
+        'maxTimeout' => $timeout,
+    ]);
+
+    if (!$response->ok()) {
+        throw new \Exception("FlareSolverr request failed (status {$response->status()})");
+    }
+
+    $payload = $response->json();
+    $status  = $payload['status'] ?? 'error';
+
+    if ($status !== 'ok') {
+        $msg = $payload['message'] ?? 'unknown error';
+        throw new \Exception("FlareSolverr returned status '{$status}': {$msg}");
+    }
+
+    $html = $payload['solution']['response'] ?? '';
+
+    if (empty($html)) {
+        throw new \Exception("FlareSolverr returned empty response for: {$url}");
+    }
+
+    Log::debug('fetchHtmlWithFlareSolverr: success', ['url' => $url, 'length' => strlen($html)]);
+
+    return $html;
 }
 
 public function reconstructUrl(string $site, string $slug): string
