@@ -132,57 +132,130 @@ public function analyzeStream(
         $pageUrl
     );
 
-    $command = [
-        $this->resolveYtDlpBinary(),
-        '--add-header', "Referer: {$data['referer']}",
-        '-j',
-        $data['stream_url'],
-    ];
-
-    logger()->debug('Running yt-dlp', [
-        'stream_url' => $data['stream_url'],
-        'referer'    => $data['referer'],
-        'command'    => $command,
-    ]);
-
-    $result = Process::env($this->ytDlpEnvironment())->run($command);
-
-    logger()->debug('yt-dlp result', [
-        'successful'   => $result->successful(),
-        'exit_code'    => $result->exitCode(),
-        'error_output' => $result->errorOutput(),
-    ]);
-
-    if ($result->failed()) {
-        throw new \RuntimeException('yt-dlp failed: ' . $result->errorOutput());
-    }
-
-    $output = json_decode($result->output(), true);
     $title = ucwords(str_replace('-', ' ', $data['movie_name'] ?? ''));
-    $formats = $output['formats'] ?? [];
-    $qualities = $this->extractQualityList($formats);
-    $fileSizes = $this->getFileSizesByQuality($formats, $output);
-    $downloadLinks = [];
 
-    foreach ($qualities as $q) {
-        $fileSize = $fileSizes[$q] ?? null;
+    if ($data['site'] === 'khdiamond' && config('streaming.cf_worker.enabled', false)) {
+        logger()->debug('Bypassing yt-dlp for khdiamond, using custom M3U8 parser via CF Worker');
+        
+        $workerUrl = rtrim(config('streaming.cf_worker.url', ''), '/');
+        $token     = config('streaming.cf_worker.token', '');
 
-        $downloadLinks[(string) $q] = [
-            'url' => URL::temporarySignedRoute(
-                'video.download', // route name
-                now()->addHours(2), 
-                [
-                    'referer' => $data['referer'],
-                    'site'    => $data['site'],
-                    'quality' => $q, // No longer hardcoded!
-                    'url'     => base64_encode($data['stream_url']),
-                    'name'    => $title,
-                    'size'    => $fileSize,
-                ],
-                false
-            ),
-            'size' => $fileSize,
+        $response = Http::timeout(30)->withoutVerifying()->withHeaders([
+            'Referer' => $data['referer'],
+            'User-Agent' => $this->userAgent,
+        ])->get($workerUrl, [
+            'url'   => $data['stream_url'],
+            'token' => $token,
+        ]);
+
+        if (!$response->successful()) {
+            throw new \RuntimeException('Failed to fetch M3U8 via CF Worker: ' . $response->status());
+        }
+
+        $m3u8 = $response->body();
+        $qualities = [];
+        $downloadLinks = [];
+        
+        $lines = explode("\n", $m3u8);
+        $currentRes = null;
+
+        // Parse M3U8 (e.g. #EXT-X-STREAM-INF:BANDWIDTH=...,RESOLUTION=1920x1080,NAME="1080p")
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line)) continue;
+
+            if (str_starts_with($line, '#EXT-X-STREAM-INF')) {
+                if (preg_match('/NAME="([^"]+)"/', $line, $m)) {
+                    $currentRes = (int) str_replace('p', '', $m[1]);
+                } elseif (preg_match('/RESOLUTION=\d+x(\d+)/', $line, $m)) {
+                    $currentRes = (int) $m[1];
+                }
+            } elseif (!str_starts_with($line, '#') && $currentRes !== null) {
+                // $line is the relative path (e.g. /playlist/.../1080p/)
+                $qualities[] = $currentRes;
+                
+                // Construct absolute URL for the sub-playlist
+                $parsed = parse_url($data['stream_url']);
+                $absoluteUrl = $parsed['scheme'] . '://' . $parsed['host'] . $line;
+                
+                // Since this sub-playlist is also on player.khdiamond.net, yt-dlp will STILL need the CF Worker
+                // to fetch it without getting blocked!
+                $proxyUrl = $workerUrl . '?url=' . urlencode($absoluteUrl) . '&token=' . urlencode($token);
+                // Important hack: yt-dlp needs the URL to look like an m3u8 or it uses the generic extractor as a web page
+                $proxyUrl .= '#.m3u8';
+
+                $downloadLinks[(string) $currentRes] = [
+                    'url' => URL::temporarySignedRoute(
+                        'video.download',
+                        now()->addHours(2), 
+                        [
+                            'referer' => $data['referer'],
+                            'site'    => $data['site'],
+                            'quality' => $currentRes,
+                            'url'     => base64_encode($proxyUrl), // Pass proxy URL to yt-dlp download!
+                            'name'    => $title,
+                            'size'    => null, // Can't easily guess size without yt-dlp parsing the segments
+                        ],
+                        false
+                    ),
+                    'size' => null,
+                ];
+                $currentRes = null;
+            }
+        }
+        
+        rsort($qualities);
+        
+        if (empty($qualities)) {
+            throw new \RuntimeException('Failed to parse qualities from M3U8: ' . substr($m3u8, 0, 100));
+        }
+    } else {
+        // Fallback for non-khdiamond or direct access
+        $command = [
+            $this->resolveYtDlpBinary(),
+            '--add-header', "Referer: {$data['referer']}",
+            '-j',
+            $data['stream_url'],
         ];
+
+        logger()->debug('Running yt-dlp', [
+            'stream_url' => $data['stream_url'],
+            'referer'    => $data['referer'],
+            'command'    => $command,
+        ]);
+
+        $result = Process::env($this->ytDlpEnvironment())->run($command);
+
+        if ($result->failed()) {
+            throw new \RuntimeException('yt-dlp failed: ' . $result->errorOutput());
+        }
+
+        $output = json_decode($result->output(), true);
+        $formats = $output['formats'] ?? [];
+        $qualities = $this->extractQualityList($formats);
+        $fileSizes = $this->getFileSizesByQuality($formats, $output);
+        $downloadLinks = [];
+
+        foreach ($qualities as $q) {
+            $fileSize = $fileSizes[$q] ?? null;
+
+            $downloadLinks[(string) $q] = [
+                'url' => URL::temporarySignedRoute(
+                    'video.download',
+                    now()->addHours(2), 
+                    [
+                        'referer' => $data['referer'],
+                        'site'    => $data['site'],
+                        'quality' => $q,
+                        'url'     => base64_encode($data['stream_url']),
+                        'name'    => $title,
+                        'size'    => $fileSize,
+                    ],
+                    false
+                ),
+                'size' => $fileSize,
+            ];
+        }
     }
 
     return [
