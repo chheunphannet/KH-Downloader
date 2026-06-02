@@ -724,14 +724,6 @@ private function fetchHtml(string $url, string $referer): string
             Log::debug('fetchHtml: got 403, retrying via Cloudflare Worker', ['url' => $url]);
             return $this->fetchHtmlViaCfWorker($url);
         }
-
-        // FlareSolverr: bypasses older Cloudflare JS challenges only.
-        // Does NOT work on BotFight Mode or Turnstile.
-        // Only used if CF Worker is not configured.
-        if (config('streaming.flaresolverr.enabled', false)) {
-            Log::debug('fetchHtml: got 403, retrying via FlareSolverr', ['url' => $url]);
-            return $this->fetchHtmlWithFlareSolverr($url);
-        }
     }
 
     throw new \Exception("Failed to fetch: $url (status {$response->status()})");
@@ -775,45 +767,6 @@ private function fetchHtmlViaCfWorker(string $url): string
     return $html;
 }
 
-/**
- * Fetch a URL via FlareSolverr to bypass Cloudflare bot protection.
- * Only called when fetchHtml() receives a 403 and FLARESOLVERR_ENABLED=true.
- *
- * FlareSolverr API docs: https://github.com/FlareSolverr/FlareSolverr
- */
-private function fetchHtmlWithFlareSolverr(string $url): string
-{
-    $flareUrl = config('streaming.flaresolverr.url', 'http://flaresolverr:8191/v1');
-    $timeout  = (int) config('streaming.flaresolverr.timeout', 60000);
-
-    $response = Http::timeout(90)->post($flareUrl, [
-        'cmd'        => 'request.get',
-        'url'        => $url,
-        'maxTimeout' => $timeout,
-    ]);
-
-    if (!$response->ok()) {
-        throw new \Exception("FlareSolverr request failed (status {$response->status()})");
-    }
-
-    $payload = $response->json();
-    $status  = $payload['status'] ?? 'error';
-
-    if ($status !== 'ok') {
-        $msg = $payload['message'] ?? 'unknown error';
-        throw new \Exception("FlareSolverr returned status '{$status}': {$msg}");
-    }
-
-    $html = $payload['solution']['response'] ?? '';
-
-    if (empty($html)) {
-        throw new \Exception("FlareSolverr returned empty response for: {$url}");
-    }
-
-    Log::debug('fetchHtmlWithFlareSolverr: success', ['url' => $url, 'length' => strlen($html)]);
-
-    return $html;
-}
 
 public function reconstructUrl(string $site, string $slug): string
 {

@@ -67,17 +67,6 @@ services:
     networks:
       - kh_network
 
-  flaresolverr:
-    image: ghcr.io/flaresolverr/flaresolverr:latest
-    container_name: kh_flaresolverr
-    restart: always
-    environment:
-      - LOG_LEVEL=info
-    networks:
-      - kh_network
-    # Port 8191 is NOT exposed to the public internet (no ports: mapping).
-    # Only the Laravel app container can reach it via the internal Docker network.
-
 networks:
   kh_network:
     driver: bridge

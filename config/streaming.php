@@ -39,21 +39,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | FlareSolverr  ← LEGACY (does NOT work on Cloudflare Turnstile/BotFight)
-    |--------------------------------------------------------------------------
-    | Only works on older Cloudflare JS challenges.
-    | If khdiamond.net is using BotFight Mode, use CF Worker above instead.
-    | CF Worker and FlareSolverr are mutually exclusive — CF Worker takes
-    | priority if both are enabled.
-    */
-    'flaresolverr' => [
-        'enabled' => env('FLARESOLVERR_ENABLED', false),
-        'url'     => env('FLARESOLVERR_URL', 'http://flaresolverr:8191/v1'),
-        'timeout' => (int) env('FLARESOLVERR_TIMEOUT_MS', 60000),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | Cache TTL for khdiamond post IDs (in seconds)
     |--------------------------------------------------------------------------
     | postid_ttl: 0 = cache forever (recommended — postid never changes).
