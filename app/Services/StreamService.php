@@ -713,17 +713,64 @@ private function fetchHtml(string $url, string $referer): string
         'Referer'    => $referer,
     ])->withoutVerifying()->get($url);
 
-    // If blocked by Cloudflare (403) and FlareSolverr is enabled, retry through it
-    if ($response->status() === 403 && config('streaming.flaresolverr.enabled', false)) {
-        Log::debug('fetchHtml: got 403, retrying via FlareSolverr', ['url' => $url]);
-        return $this->fetchHtmlWithFlareSolverr($url);
+    if ($response->ok()) {
+        return $response->body();
     }
+
+    // If blocked by Cloudflare (403), try bypass methods in order of preference
+    if ($response->status() === 403) {
+        // 1st preference: Cloudflare Worker proxy (fastest, most reliable)
+        if (config('streaming.cf_worker.enabled', false)) {
+            Log::debug('fetchHtml: got 403, retrying via Cloudflare Worker', ['url' => $url]);
+            return $this->fetchHtmlViaCfWorker($url);
+        }
+
+        // 2nd preference: FlareSolverr (slower, may fail on Turnstile challenges)
+        if (config('streaming.flaresolverr.enabled', false)) {
+            Log::debug('fetchHtml: got 403, retrying via FlareSolverr', ['url' => $url]);
+            return $this->fetchHtmlWithFlareSolverr($url);
+        }
+    }
+
+    throw new \Exception("Failed to fetch: $url (status {$response->status()})");
+}
+
+/**
+ * Fetch a URL through a Cloudflare Worker proxy.
+ *
+ * The Worker runs inside Cloudflare's own network so it is trusted by
+ * Cloudflare bot protection (BotFight Mode / Turnstile) on any CF-protected
+ * site. This is the preferred bypass method over FlareSolverr.
+ *
+ * Worker script: see cloudflare-worker/kh-proxy.js in this repo.
+ */
+private function fetchHtmlViaCfWorker(string $url): string
+{
+    $workerUrl = rtrim(config('streaming.cf_worker.url', ''), '/');
+    $token     = config('streaming.cf_worker.token', '');
+
+    if (empty($workerUrl)) {
+        throw new \Exception('CF_WORKER_URL is not configured.');
+    }
+
+    $response = Http::timeout(30)->get($workerUrl, [
+        'url'   => $url,
+        'token' => $token,
+    ]);
 
     if (!$response->ok()) {
-        throw new \Exception("Failed to fetch: $url (status {$response->status()})");
+        throw new \Exception("Cloudflare Worker request failed (status {$response->status()})");
     }
 
-    return $response->body();
+    $html = $response->body();
+
+    if (empty($html)) {
+        throw new \Exception("Cloudflare Worker returned empty response for: {$url}");
+    }
+
+    Log::debug('fetchHtmlViaCfWorker: success', ['url' => $url, 'length' => strlen($html)]);
+
+    return $html;
 }
 
 /**

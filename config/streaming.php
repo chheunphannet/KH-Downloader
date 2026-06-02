@@ -31,6 +31,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Cloudflare Worker Proxy (recommended over FlareSolverr)
+    |--------------------------------------------------------------------------
+    | A tiny Cloudflare Worker that fetches pages on behalf of your server.
+    | Because it runs inside Cloudflare's own network, it bypasses Cloudflare
+    | bot protection (BotFight Mode / Turnstile) on any CF-protected site.
+    |
+    | CF_WORKER_URL  : Your deployed worker URL
+    |                  e.g. https://kh-proxy.yourname.workers.dev
+    | CF_WORKER_TOKEN: A secret token you set in the Worker env vars.
+    |                  Prevents others from using your worker as a free proxy.
+    */
+    'cf_worker' => [
+        'enabled' => env('CF_WORKER_ENABLED', false),
+        'url'     => env('CF_WORKER_URL', ''),
+        'token'   => env('CF_WORKER_TOKEN', ''),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Cache TTLs (in seconds)
     |--------------------------------------------------------------------------
     | postid_ttl : how long to cache the khdiamond post ID.
