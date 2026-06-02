@@ -17,29 +17,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | FlareSolverr — Cloudflare bypass proxy
-    |--------------------------------------------------------------------------
-    | Set FLARESOLVERR_ENABLED=true in .env to activate.
-    | URL should point to the FlareSolverr service (Docker service name or IP).
-    | Timeout is in milliseconds.
-    */
-    'flaresolverr' => [
-        'enabled' => env('FLARESOLVERR_ENABLED', false),
-        'url'     => env('FLARESOLVERR_URL', 'http://flaresolverr:8191/v1'),
-        'timeout' => (int) env('FLARESOLVERR_TIMEOUT_MS', 60000),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Cloudflare Worker Proxy (recommended over FlareSolverr)
+    | Cloudflare Worker Proxy  ← RECOMMENDED
     |--------------------------------------------------------------------------
     | A tiny Cloudflare Worker that fetches pages on behalf of your server.
-    | Because it runs inside Cloudflare's own network, it bypasses Cloudflare
-    | bot protection (BotFight Mode / Turnstile) on any CF-protected site.
+    | Because it runs INSIDE Cloudflare's own network, it is trusted by
+    | Cloudflare bot protection (BotFight Mode / Turnstile) on any CF-protected
+    | site — bypassing the 403 block that your VPS datacenter IP receives.
+    |
+    | Deploy: see cloudflare-worker/kh-proxy.js
     |
     | CF_WORKER_URL  : Your deployed worker URL
     |                  e.g. https://kh-proxy.yourname.workers.dev
-    | CF_WORKER_TOKEN: A secret token you set in the Worker env vars.
+    | CF_WORKER_TOKEN: A secret token set in the Worker environment variables.
     |                  Prevents others from using your worker as a free proxy.
     */
     'cf_worker' => [
@@ -50,15 +39,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Cache TTLs (in seconds)
+    | FlareSolverr  ← LEGACY (does NOT work on Cloudflare Turnstile/BotFight)
     |--------------------------------------------------------------------------
-    | postid_ttl : how long to cache the khdiamond post ID.
-    |              0 = cache forever (recommended — postid never changes).
-    | embed_ttl  : how long to cache the embed/stream URL.
-    |              khdiamond embed URLs can expire, so keep this short.
+    | Only works on older Cloudflare JS challenges.
+    | If khdiamond.net is using BotFight Mode, use CF Worker above instead.
+    | CF Worker and FlareSolverr are mutually exclusive — CF Worker takes
+    | priority if both are enabled.
+    */
+    'flaresolverr' => [
+        'enabled' => env('FLARESOLVERR_ENABLED', false),
+        'url'     => env('FLARESOLVERR_URL', 'http://flaresolverr:8191/v1'),
+        'timeout' => (int) env('FLARESOLVERR_TIMEOUT_MS', 60000),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cache TTL for khdiamond post IDs (in seconds)
+    |--------------------------------------------------------------------------
+    | postid_ttl: 0 = cache forever (recommended — postid never changes).
+    |
+    | Note: embed/stream URLs are intentionally NOT cached. They are always
+    | fetched fresh via a direct AJAX call to khdiamond's admin-ajax.php
+    | which is NOT protected by Cloudflare bot protection.
     */
     'cache' => [
-        'postid_ttl' => (int) env('CACHE_POSTID_TTL', 0),       // 0 = forever
-        'embed_ttl'  => (int) env('CACHE_EMBED_TTL', 21600),     // 6 hours
+        'postid_ttl' => (int) env('CACHE_POSTID_TTL', 0), // 0 = forever
     ],
 ];

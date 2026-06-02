@@ -717,15 +717,17 @@ private function fetchHtml(string $url, string $referer): string
         return $response->body();
     }
 
-    // If blocked by Cloudflare (403), try bypass methods in order of preference
     if ($response->status() === 403) {
-        // 1st preference: Cloudflare Worker proxy (fastest, most reliable)
+        // CF Worker: bypasses Cloudflare BotFight Mode / Turnstile
+        // Use this when your VPS datacenter IP is blocked by Cloudflare.
         if (config('streaming.cf_worker.enabled', false)) {
             Log::debug('fetchHtml: got 403, retrying via Cloudflare Worker', ['url' => $url]);
             return $this->fetchHtmlViaCfWorker($url);
         }
 
-        // 2nd preference: FlareSolverr (slower, may fail on Turnstile challenges)
+        // FlareSolverr: bypasses older Cloudflare JS challenges only.
+        // Does NOT work on BotFight Mode or Turnstile.
+        // Only used if CF Worker is not configured.
         if (config('streaming.flaresolverr.enabled', false)) {
             Log::debug('fetchHtml: got 403, retrying via FlareSolverr', ['url' => $url]);
             return $this->fetchHtmlWithFlareSolverr($url);
