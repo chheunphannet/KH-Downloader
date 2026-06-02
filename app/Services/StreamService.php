@@ -676,22 +676,37 @@ private function resolveReferer(string $site, string $url): string
 }
 
 private function getEmbedUrl(int $postid, string $movie_type, string $pageUrl) {
-  $response = Http::withHeaders([
-          'Referer' => $pageUrl,
-          'User-Agent' => $this->userAgent
-      ])->withoutVerifying()->asForm()->post(
-          "https://khdiamond.net/wp-admin/admin-ajax.php",
-          [
-              'action' => 'doo_player_ajax',
-              'post'   => $postid,
-              'nume'   => 1,
-              'type'   => $movie_type,
-          ]
-      );
+    $targetUrl = "https://khdiamond.net/wp-admin/admin-ajax.php";
+    $postData = [
+        'action' => 'doo_player_ajax',
+        'post'   => $postid,
+        'nume'   => 1,
+        'type'   => $movie_type,
+    ];
 
-      if (!$response->successful()) {
-          throw new \Exception("khdiamond ajax request failed with status " . $response->status());
-      }
+    $response = Http::withHeaders([
+        'Referer' => $pageUrl,
+        'User-Agent' => $this->userAgent
+    ])->withoutVerifying()->asForm()->post($targetUrl, $postData);
+
+    if ($response->status() === 403 && config('streaming.cf_worker.enabled', false)) {
+        Log::debug('getEmbedUrl: got 403, retrying via Cloudflare Worker', ['postid' => $postid]);
+        
+        $workerUrl = rtrim(config('streaming.cf_worker.url', ''), '/');
+        $token     = config('streaming.cf_worker.token', '');
+
+        $response = Http::timeout(30)
+            ->withHeaders([
+                'Referer' => $pageUrl,
+                'User-Agent' => $this->userAgent
+            ])
+            ->asForm()
+            ->post($workerUrl . '?url=' . urlencode($targetUrl) . '&token=' . urlencode($token), $postData);
+    }
+
+    if (!$response->successful()) {
+        throw new \Exception("khdiamond ajax request failed with status " . $response->status());
+    }
 
       $payload = $response->json();
 

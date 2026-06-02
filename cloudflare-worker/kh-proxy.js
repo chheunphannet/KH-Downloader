@@ -50,23 +50,35 @@ export default {
 
     // ── Fetch the target page from inside Cloudflare's network ────────────
     try {
-      const response = await fetch(parsedTarget.toString(), {
-        method: 'GET',
+      const fetchOptions = {
+        method: request.method,
         headers: {
-          'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'User-Agent': request.headers.get('user-agent') || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+          'Accept': request.headers.get('accept') || '*/*',
           'Accept-Language': 'en-US,en;q=0.5',
-          'Cache-Control':   'no-cache',
+          'Cache-Control': 'no-cache',
+          'Referer': request.headers.get('referer') || targetUrl,
         },
         redirect: 'follow',
-      });
+      };
 
-      const html = await response.text();
+      if (request.headers.get('content-type')) {
+          fetchOptions.headers['Content-Type'] = request.headers.get('content-type');
+      }
 
-      return new Response(html, {
+      // Forward POST body if present
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        fetchOptions.body = await request.clone().text();
+      }
+
+      const response = await fetch(parsedTarget.toString(), fetchOptions);
+      
+      const responseText = await response.text();
+
+      return new Response(responseText, {
         status: response.status,
         headers: {
-          'Content-Type':                'text/html; charset=utf-8',
+          'Content-Type': response.headers.get('content-type') || 'text/html; charset=utf-8',
           'Access-Control-Allow-Origin': '*',
         },
       });
