@@ -53,17 +53,34 @@ export default {
       const fetchOptions = {
         method: request.method,
         headers: {
-          'User-Agent': request.headers.get('user-agent') || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-          'Accept': request.headers.get('accept') || '*/*',
-          'Accept-Language': 'en-US,en;q=0.5',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+          'Accept-Language': 'en-US,en;q=0.9',
           'Cache-Control': 'no-cache',
-          'Referer': request.headers.get('referer') || targetUrl,
+          'Referer': targetUrl,
+          'sec-ch-ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+          'sec-ch-ua-mobile': '?0',
+          'sec-ch-ua-platform': '"Windows"',
+          'sec-fetch-dest': 'document',
+          'sec-fetch-mode': 'navigate',
+          'sec-fetch-site': 'none',
+          'sec-fetch-user': '?1',
+          'upgrade-insecure-requests': '1'
         },
         redirect: 'follow',
       };
 
-      if (request.headers.get('content-type')) {
-          fetchOptions.headers['Content-Type'] = request.headers.get('content-type');
+      // Forward/Overwrite headers from the client request
+      for (const [key, value] of request.headers.entries()) {
+        const lowerKey = key.toLowerCase();
+        if (
+          !lowerKey.startsWith('cf-') &&
+          !lowerKey.startsWith('x-') &&
+          lowerKey !== 'host' &&
+          lowerKey !== 'connection'
+        ) {
+          fetchOptions.headers[key] = value;
+        }
       }
 
       // Forward POST body if present

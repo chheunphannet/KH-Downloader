@@ -902,10 +902,16 @@ private function fetchHtmlViaCfWorker(string $url): string
     $maxAttempts = 3;
     for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
         try {
-            $response = Http::timeout(15)->get($workerUrl, [
-                'url'   => $url,
-                'token' => $token,
-            ]);
+            $response = Http::timeout(15)
+                ->withoutVerifying()
+                ->withHeaders([
+                    'User-Agent' => $this->userAgent,
+                    'Referer'    => $url,
+                ])
+                ->get($workerUrl, [
+                    'url'   => $url,
+                    'token' => $token,
+                ]);
 
             if ($response->ok() && !empty($response->body())) {
                 break;
@@ -984,10 +990,16 @@ public function verifyHlsManifest(?string $url, string $referer): bool
             $workerUrl = rtrim(config('streaming.cf_worker.url', ''), '/');
             $token     = config('streaming.cf_worker.token', '');
             if (!empty($workerUrl)) {
-                $response = Http::timeout(4)->withoutVerifying()->get($workerUrl, [
-                    'url'   => $url,
-                    'token' => $token,
-                ]);
+                $response = Http::timeout(4)
+                    ->withoutVerifying()
+                    ->withHeaders([
+                        'User-Agent' => $this->userAgent,
+                        'Referer'    => $referer,
+                    ])
+                    ->get($workerUrl, [
+                        'url'   => $url,
+                        'token' => $token,
+                    ]);
             }
         }
 
