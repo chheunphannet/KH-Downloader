@@ -134,8 +134,9 @@ public function analyzeStream(
 
     $title = ucwords(str_replace('-', ' ', $data['movie_name'] ?? ''));
 
-    if ($data['site'] === 'khdiamond' && config('streaming.cf_worker.enabled', false)) {
-        logger()->debug('Bypassing yt-dlp for khdiamond, using custom M3U8 parser via CF Worker');
+    $isBypassSite = ($data['site'] === 'khdiamond' || $data['site'] === 'khfullhd');
+    if ($isBypassSite && config('streaming.cf_worker.enabled', false)) {
+        logger()->debug("Bypassing yt-dlp for {$data['site']}, using custom M3U8 parser via CF Worker");
         
         $workerUrl = rtrim(config('streaming.cf_worker.url', ''), '/');
         $token     = config('streaming.cf_worker.token', '');
@@ -190,14 +191,24 @@ public function analyzeStream(
                     $currentRes = (int) $m[1];
                 }
             } elseif (!str_starts_with($line, '#') && $currentRes !== null) {
-                // $line is the relative path (e.g. /playlist/.../1080p/)
                 $qualities[] = $currentRes;
                 
-                // Construct absolute URL for the sub-playlist
-                $parsed = parse_url($data['stream_url']);
-                $absoluteUrl = $parsed['scheme'] . '://' . $parsed['host'] . $line;
+                // Construct absolute URL for the sub-playlist dynamically
+                if (str_starts_with($line, 'http://') || str_starts_with($line, 'https://')) {
+                    $absoluteUrl = $line;
+                } else {
+                    $parsed = parse_url($data['stream_url']);
+                    if (str_starts_with($line, '/')) {
+                        $absoluteUrl = $parsed['scheme'] . '://' . $parsed['host'] . $line;
+                    } else {
+                        $path = $parsed['path'] ?? '';
+                        $dir = dirname($path);
+                        $dir = ($dir === '\\' || $dir === '/') ? '' : $dir;
+                        $absoluteUrl = $parsed['scheme'] . '://' . $parsed['host'] . $dir . '/' . $line;
+                    }
+                }
                 
-                // Since this sub-playlist is also on player.khdiamond.net, yt-dlp will STILL need the CF Worker
+                // Since this sub-playlist is also on a CF-protected domain, yt-dlp will STILL need the CF Worker
                 // to fetch it without getting blocked!
                 $proxyUrl = $workerUrl . '?url=' . urlencode($absoluteUrl) . '&token=' . urlencode($token);
                 // Important hack: yt-dlp needs the URL to look like an m3u8 or it uses the generic extractor as a web page
@@ -955,11 +966,37 @@ public function verifyHlsManifest(?string $url, string $referer): bool
     if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
         return false;
     }
+
+    $parsed = parse_url($url);
+    $host = $parsed['host'] ?? '';
+
+    $isCfProtected = false;
+    foreach (['khdiamond', 'khfullhd', 'khanime'] as $keyword) {
+        if (str_contains($host, $keyword)) {
+            $isCfProtected = true;
+            break;
+        }
+    }
+
     try {
-        $response = Http::withHeaders([
-            'Referer' => $referer,
-            'User-Agent' => $this->userAgent,
-        ])->withoutVerifying()->timeout(2.5)->get($url);
+        $response = null;
+        if ($isCfProtected && config('streaming.cf_worker.enabled', false)) {
+            $workerUrl = rtrim(config('streaming.cf_worker.url', ''), '/');
+            $token     = config('streaming.cf_worker.token', '');
+            if (!empty($workerUrl)) {
+                $response = Http::timeout(4)->withoutVerifying()->get($workerUrl, [
+                    'url'   => $url,
+                    'token' => $token,
+                ]);
+            }
+        }
+
+        if (!$response) {
+            $response = Http::withHeaders([
+                'Referer' => $referer,
+                'User-Agent' => $this->userAgent,
+            ])->withoutVerifying()->timeout(2.5)->get($url);
+        }
 
         if ($response->successful()) {
             $body = $response->body();
