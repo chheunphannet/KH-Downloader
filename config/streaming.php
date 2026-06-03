@@ -39,6 +39,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Python Impersonation Proxy (FastAPI + curl_cffi)
+    |--------------------------------------------------------------------------
+    | A python service that uses curl_cffi to fetch pages on behalf of the server.
+    | Spoofs TLS JA3 fingerprints to bypass strict Turnstile challenges on khfullhd.
+    |
+    | Deploy: see python-proxy/README.md
+    */
+    'python_proxy' => [
+        'enabled' => env('PYTHON_PROXY_ENABLED', false),
+        'url'     => env('PYTHON_PROXY_URL', ''),
+        'token'   => env('PYTHON_PROXY_TOKEN', ''),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Cache TTL for khdiamond post IDs (in seconds)
     |--------------------------------------------------------------------------
     | postid_ttl: 0 = cache forever (recommended — postid never changes).

@@ -135,23 +135,36 @@ public function analyzeStream(
     $title = ucwords(str_replace('-', ' ', $data['movie_name'] ?? ''));
 
     $isBypassSite = ($data['site'] === 'khdiamond' || $data['site'] === 'khfullhd');
-    if ($isBypassSite && config('streaming.cf_worker.enabled', false)) {
-        logger()->debug("Bypassing yt-dlp for {$data['site']}, using custom M3U8 parser via CF Worker");
+    $useCfWorker = ($data['site'] === 'khdiamond' && config('streaming.cf_worker.enabled', false));
+    $usePython = ($data['site'] === 'khfullhd' && config('streaming.python_proxy.enabled', false));
+
+    if ($isBypassSite && ($useCfWorker || $usePython)) {
+        logger()->debug("Bypassing yt-dlp for {$data['site']}, using custom M3U8 parser");
         
         $workerUrl = rtrim(config('streaming.cf_worker.url', ''), '/');
-        $token     = config('streaming.cf_worker.token', '');
+        $workerToken = config('streaming.cf_worker.token', '');
+        $pythonUrl = rtrim(config('streaming.python_proxy.url', ''), '/');
+        $pythonToken = config('streaming.python_proxy.token', '');
 
         $response = null;
         $maxAttempts = 3;
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             try {
-                $response = Http::timeout(15)->withoutVerifying()->withHeaders([
-                    'Referer' => $data['referer'],
-                    'User-Agent' => $this->userAgent,
-                ])->get($workerUrl, [
-                    'url'   => $data['stream_url'],
-                    'token' => $token,
-                ]);
+                if ($usePython) {
+                    $response = Http::timeout(15)->withoutVerifying()->get($pythonUrl, [
+                        'url'     => $data['stream_url'],
+                        'referer' => $data['referer'],
+                        'token'   => $pythonToken,
+                    ]);
+                } else {
+                    $response = Http::timeout(15)->withoutVerifying()->withHeaders([
+                        'Referer'    => $data['referer'],
+                        'User-Agent' => $this->userAgent,
+                    ])->get($workerUrl, [
+                        'url'   => $data['stream_url'],
+                        'token' => $workerToken,
+                    ]);
+                }
 
                 if ($response->successful()) {
                     break;
@@ -169,7 +182,7 @@ public function analyzeStream(
 
         if (!$response || !$response->successful()) {
             $status = $response ? $response->status() : 'unknown';
-            throw new \RuntimeException('Failed to fetch M3U8 via CF Worker after retries. Status: ' . $status);
+            throw new \RuntimeException('Failed to fetch M3U8 via Proxy after retries. Status: ' . $status);
         }
 
         $m3u8 = $response->body();
@@ -208,9 +221,12 @@ public function analyzeStream(
                     }
                 }
                 
-                // Since this sub-playlist is also on a CF-protected domain, yt-dlp will STILL need the CF Worker
-                // to fetch it without getting blocked!
-                $proxyUrl = $workerUrl . '?url=' . urlencode($absoluteUrl) . '&token=' . urlencode($token);
+                // Generate the proxy URL for yt-dlp to download segments without blocks
+                if ($usePython) {
+                    $proxyUrl = $pythonUrl . '?url=' . urlencode($absoluteUrl) . '&token=' . urlencode($pythonToken) . '&referer=' . urlencode($data['referer']);
+                } else {
+                    $proxyUrl = $workerUrl . '?url=' . urlencode($absoluteUrl) . '&token=' . urlencode($workerToken);
+                }
                 // Important hack: yt-dlp needs the URL to look like an m3u8 or it uses the generic extractor as a web page
                 $proxyUrl .= '#.m3u8';
 
@@ -872,12 +888,74 @@ private function fetchHtml(string $url, string $referer): string
     }
 
     $status = $response ? $response->status() : 0;
+    
+    // Check if the URL should go through the Python proxy
+    $host = parse_url($url, PHP_URL_HOST);
+    $usePython = (str_contains($host, 'khfullhd') || str_contains($host, 'khanime')) && config('streaming.python_proxy.enabled', false);
+
+    if ($usePython) {
+        Log::debug("fetchHtml: got status $status for $host, retrying via Python Proxy", ['url' => $url]);
+        return $this->fetchHtmlViaPythonProxy($url, $referer);
+    }
+
     if (($status === 403 || $status === 0 || $status === 521) && config('streaming.cf_worker.enabled', false)) {
         Log::debug("fetchHtml: got status $status, retrying via Cloudflare Worker", ['url' => $url]);
         return $this->fetchHtmlViaCfWorker($url);
     }
 
     throw new \Exception("Failed to fetch: $url (status {$status})");
+}
+
+/**
+ * Fetch a URL through the Python Impersonation Proxy.
+ */
+private function fetchHtmlViaPythonProxy(string $url, string $referer): string
+{
+    $proxyUrl = rtrim(config('streaming.python_proxy.url', ''), '/');
+    $token     = config('streaming.python_proxy.token', '');
+
+    if (empty($proxyUrl)) {
+        throw new \Exception('PYTHON_PROXY_URL is not configured.');
+    }
+
+    $response = null;
+    $maxAttempts = 3;
+    for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+        try {
+            $response = Http::timeout(15)->withoutVerifying()->get($proxyUrl, [
+                'url'     => $url,
+                'referer' => $referer,
+                'token'   => $token,
+            ]);
+
+            if ($response->ok() && !empty($response->body())) {
+                break;
+            }
+
+            Log::warning("fetchHtmlViaPythonProxy attempt $attempt failed with status: " . ($response ? $response->status() : 'unknown'));
+        } catch (\Throwable $e) {
+            Log::warning("fetchHtmlViaPythonProxy attempt $attempt threw exception: " . $e->getMessage());
+        }
+
+        if ($attempt < $maxAttempts) {
+            usleep(500000 * $attempt);
+        }
+    }
+
+    if (!$response || !$response->ok()) {
+        $status = $response ? $response->status() : 'unknown';
+        throw new \Exception("Python Proxy request failed after retries (status {$status})");
+    }
+
+    $html = $response->body();
+
+    if (empty($html)) {
+        throw new \Exception("Python Proxy returned empty response for: {$url}");
+    }
+
+    Log::debug('fetchHtmlViaPythonProxy: success', ['url' => $url, 'length' => strlen($html)]);
+
+    return $html;
 }
 
 /**
