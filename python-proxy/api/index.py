@@ -8,6 +8,7 @@ from curl_cffi import requests
 app = FastAPI(title="KH Impersonation Proxy")
 
 SECRET_TOKEN = os.getenv("SECRET_TOKEN")
+PROXY_URL = os.getenv("PROXY_URL") # e.g. http://username:password@ip:port
 API_KEY_HEADER = APIKeyHeader(name="X-Proxy-Token", auto_error=False)
 
 def verify_token(token: str = Security(API_KEY_HEADER), token_query: str = Query(None, alias="token")):
@@ -22,6 +23,28 @@ def verify_token(token: str = Security(API_KEY_HEADER), token_query: str = Query
 def fetch_url(url: str, headers: dict) -> Response:
     impersonate_target = "chrome120"
     
+    # 0. If a custom proxy is configured, use it directly (blazing fast!)
+    if PROXY_URL:
+        try:
+            proxies = {
+                "http": PROXY_URL,
+                "https": PROXY_URL
+            }
+            response = requests.get(
+                url,
+                headers=headers,
+                impersonate=impersonate_target,
+                proxies=proxies,
+                timeout=12
+            )
+            return Response(
+                content=response.content,
+                status_code=response.status_code,
+                media_type=response.headers.get("content-type") or response.headers.get("Content-Type") or "text/html"
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Custom proxy error: {str(e)}")
+
     # 1. Try Direct Fetch first
     try:
         response = requests.get(
