@@ -140,16 +140,35 @@ public function analyzeStream(
         $workerUrl = rtrim(config('streaming.cf_worker.url', ''), '/');
         $token     = config('streaming.cf_worker.token', '');
 
-        $response = Http::timeout(30)->withoutVerifying()->withHeaders([
-            'Referer' => $data['referer'],
-            'User-Agent' => $this->userAgent,
-        ])->get($workerUrl, [
-            'url'   => $data['stream_url'],
-            'token' => $token,
-        ]);
+        $response = null;
+        $maxAttempts = 3;
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                $response = Http::timeout(15)->withoutVerifying()->withHeaders([
+                    'Referer' => $data['referer'],
+                    'User-Agent' => $this->userAgent,
+                ])->get($workerUrl, [
+                    'url'   => $data['stream_url'],
+                    'token' => $token,
+                ]);
 
-        if (!$response->successful()) {
-            throw new \RuntimeException('Failed to fetch M3U8 via CF Worker: ' . $response->status());
+                if ($response->successful()) {
+                    break;
+                }
+
+                logger()->warning("analyzeStream M3U8 fetch attempt $attempt failed with status: " . $response->status());
+            } catch (\Throwable $e) {
+                logger()->warning("analyzeStream M3U8 fetch attempt $attempt threw exception: " . $e->getMessage());
+            }
+
+            if ($attempt < $maxAttempts) {
+                usleep(500000 * $attempt);
+            }
+        }
+
+        if (!$response || !$response->successful()) {
+            $status = $response ? $response->status() : 'unknown';
+            throw new \RuntimeException('Failed to fetch M3U8 via CF Worker after retries. Status: ' . $status);
         }
 
         $m3u8 = $response->body();
@@ -757,28 +776,59 @@ private function getEmbedUrl(int $postid, string $movie_type, string $pageUrl) {
         'type'   => $movie_type,
     ];
 
-    $response = Http::withHeaders([
-        'Referer' => $pageUrl,
-        'User-Agent' => $this->userAgent
-    ])->withoutVerifying()->asForm()->post($targetUrl, $postData);
+    $response = null;
+    $directFailed = false;
 
-    if ($response->status() === 403 && config('streaming.cf_worker.enabled', false)) {
-        Log::debug('getEmbedUrl: got 403, retrying via Cloudflare Worker', ['postid' => $postid]);
+    try {
+        $response = Http::withHeaders([
+            'Referer' => $pageUrl,
+            'User-Agent' => $this->userAgent
+        ])->withoutVerifying()->asForm()->post($targetUrl, $postData);
+
+        if (!$response->successful()) {
+            $directFailed = true;
+        }
+    } catch (\Throwable $e) {
+        Log::warning('getEmbedUrl direct request threw exception', ['error' => $e->getMessage()]);
+        $directFailed = true;
+    }
+
+    if ($directFailed && config('streaming.cf_worker.enabled', false)) {
+        $status = $response ? $response->status() : 'exception';
+        Log::debug("getEmbedUrl: direct request failed (status $status), retrying via Cloudflare Worker", ['postid' => $postid]);
         
         $workerUrl = rtrim(config('streaming.cf_worker.url', ''), '/');
         $token     = config('streaming.cf_worker.token', '');
 
-        $response = Http::timeout(30)
-            ->withHeaders([
-                'Referer' => $pageUrl,
-                'User-Agent' => $this->userAgent
-            ])
-            ->asForm()
-            ->post($workerUrl . '?url=' . urlencode($targetUrl) . '&token=' . urlencode($token), $postData);
+        $maxAttempts = 3;
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                $response = Http::timeout(15)
+                    ->withHeaders([
+                        'Referer' => $pageUrl,
+                        'User-Agent' => $this->userAgent
+                    ])
+                    ->asForm()
+                    ->post($workerUrl . '?url=' . urlencode($targetUrl) . '&token=' . urlencode($token), $postData);
+
+                if ($response->successful()) {
+                    break;
+                }
+
+                Log::warning("getEmbedUrl CF Worker attempt $attempt failed with status: " . $response->status());
+            } catch (\Throwable $e) {
+                Log::warning("getEmbedUrl CF Worker attempt $attempt threw exception: " . $e->getMessage());
+            }
+
+            if ($attempt < $maxAttempts) {
+                usleep(500000 * $attempt);
+            }
+        }
     }
 
-    if (!$response->successful()) {
-        throw new \Exception("khdiamond ajax request failed with status " . $response->status());
+    if (!$response || !$response->successful()) {
+        $status = $response ? $response->status() : 'unknown';
+        throw new \Exception("khdiamond ajax request failed with status " . $status);
     }
 
       $payload = $response->json();
@@ -796,25 +846,27 @@ private function getEmbedUrl(int $postid, string $movie_type, string $pageUrl) {
 
 private function fetchHtml(string $url, string $referer): string
 {
-    $response = Http::withHeaders([
-        'User-Agent' => $this->userAgent,
-        'Referer'    => $referer,
-    ])->withoutVerifying()->get($url);
+    $response = null;
+    try {
+        $response = Http::withHeaders([
+            'User-Agent' => $this->userAgent,
+            'Referer'    => $referer,
+        ])->withoutVerifying()->get($url);
+    } catch (\Throwable $e) {
+        Log::warning('fetchHtml direct request threw exception', ['error' => $e->getMessage()]);
+    }
 
-    if ($response->ok()) {
+    if ($response && $response->ok()) {
         return $response->body();
     }
 
-    if ($response->status() === 403) {
-        // CF Worker: bypasses Cloudflare BotFight Mode / Turnstile
-        // Use this when your VPS datacenter IP is blocked by Cloudflare.
-        if (config('streaming.cf_worker.enabled', false)) {
-            Log::debug('fetchHtml: got 403, retrying via Cloudflare Worker', ['url' => $url]);
-            return $this->fetchHtmlViaCfWorker($url);
-        }
+    $status = $response ? $response->status() : 0;
+    if (($status === 403 || $status === 0 || $status === 521) && config('streaming.cf_worker.enabled', false)) {
+        Log::debug("fetchHtml: got status $status, retrying via Cloudflare Worker", ['url' => $url]);
+        return $this->fetchHtmlViaCfWorker($url);
     }
 
-    throw new \Exception("Failed to fetch: $url (status {$response->status()})");
+    throw new \Exception("Failed to fetch: $url (status {$status})");
 }
 
 /**
@@ -835,13 +887,32 @@ private function fetchHtmlViaCfWorker(string $url): string
         throw new \Exception('CF_WORKER_URL is not configured.');
     }
 
-    $response = Http::timeout(30)->get($workerUrl, [
-        'url'   => $url,
-        'token' => $token,
-    ]);
+    $response = null;
+    $maxAttempts = 3;
+    for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+        try {
+            $response = Http::timeout(15)->get($workerUrl, [
+                'url'   => $url,
+                'token' => $token,
+            ]);
 
-    if (!$response->ok()) {
-        throw new \Exception("Cloudflare Worker request failed (status {$response->status()})");
+            if ($response->ok() && !empty($response->body())) {
+                break;
+            }
+
+            Log::warning("fetchHtmlViaCfWorker attempt $attempt failed with status: " . ($response ? $response->status() : 'unknown'));
+        } catch (\Throwable $e) {
+            Log::warning("fetchHtmlViaCfWorker attempt $attempt threw exception: " . $e->getMessage());
+        }
+
+        if ($attempt < $maxAttempts) {
+            usleep(500000 * $attempt);
+        }
+    }
+
+    if (!$response || !$response->ok()) {
+        $status = $response ? $response->status() : 'unknown';
+        throw new \Exception("Cloudflare Worker request failed after retries (status {$status})");
     }
 
     $html = $response->body();

@@ -57,28 +57,18 @@ class StreamController extends Controller{
 
               $freshEmbedUrl = null;
               if ($meta && !empty($meta['postid'])) {
-                  try {
-                      $pageUrl = $this->streamService->reconstructUrl($site, $slug);
-                      $movieType = $meta['movie_type'] ?? $meta['type'] ?? 'movie';
-                      $freshEmbed = $this->streamService->refreshKhdiamondEmbed(
-                          (int) $meta['postid'],
-                          $movieType,
-                          $pageUrl
-                      );
-                      $freshEmbedUrl = $freshEmbed['embed_url'];
-                  } catch (\Throwable $e) {
-                      logger()->warning('Embed refresh failed', ['error' => $e->getMessage()]);
-                  }
+                  $pageUrl = $this->streamService->reconstructUrl($site, $slug);
+                  $movieType = $meta['movie_type'] ?? $meta['type'] ?? 'movie';
+                  $freshEmbed = $this->streamService->refreshKhdiamondEmbed(
+                      (int) $meta['postid'],
+                      $movieType,
+                      $pageUrl
+                  );
+                  $freshEmbedUrl = $freshEmbed['embed_url'];
               }
 
-              if ($freshEmbedUrl) {
-                  $cached['embed_url'] = $freshEmbedUrl;
-                  $cached['can_watch'] = true;
-              } else {
-                  // Embed refresh failed — hide broken embed, downloads still work
-                  $cached['embed_url'] = null;
-                  $cached['can_watch'] = false;
-              }
+              $cached['embed_url'] = $freshEmbedUrl;
+              $cached['can_watch'] = !empty($freshEmbedUrl);
               return response()->json($cached);
           }
 
