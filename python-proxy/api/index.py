@@ -18,12 +18,15 @@ def verify_token(token: str = Security(API_KEY_HEADER), token_query: str = Query
     if actual_token != SECRET_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-@app.get("/", dependencies=[Security(verify_token)])
-@app.get("/api/index", dependencies=[Security(verify_token)])
+@app.api_route("/{path_name:path}", methods=["GET", "POST"], dependencies=[Security(verify_token)])
 def proxy(
-    url: str = Query(..., description="The target URL to fetch"),
+    path_name: str = "",
+    url: str = Query(None, description="The target URL to fetch"),
     referer: str = Query(None, description="Optional Referer header")
 ):
+    if not url:
+        return {"status": "ok", "message": "KH Proxy is running!"}
+
     try:
         headers = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -48,4 +51,5 @@ def proxy(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
